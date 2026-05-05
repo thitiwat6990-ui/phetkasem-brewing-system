@@ -9,7 +9,7 @@ import SupplierManagerModal from '@/components/SupplierManagerModal';
 
 export default function InventoryPage() {
   const { inventory, deleteInventoryItem, suppliers } = useBrew();
-  
+
   // States for Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -35,13 +35,13 @@ export default function InventoryPage() {
   const filteredInventory = useMemo(() => {
     return inventory.filter(item => {
       // 1. Text Search (matches name or company)
-      const matchesSearch = 
+      const matchesSearch =
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (item.company && item.company.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+
       // 2. Category Filter
       const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
-      
+
       // 3. Company Filter
       const matchesCompany = companyFilter === 'All' || item.company === companyFilter;
 
@@ -72,14 +72,14 @@ export default function InventoryPage() {
             <p className="text-text-secondary mt-2">Track raw materials and packaging supplies.</p>
           </div>
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={() => setIsSupplierModalOpen(true)}
               className="flex items-center gap-2 bg-white/5 text-white px-4 py-2 rounded-xl font-bold hover:bg-white/10 transition-colors border border-white/10"
             >
               <Building2 className="w-5 h-5" />
               Manage Suppliers
             </button>
-            <button 
+            <button
               onClick={() => { setSelectedItem(null); setIsModalOpen(true); }}
               className="flex items-center gap-2 bg-brand-amber text-black px-4 py-2 rounded-xl font-bold hover:bg-brand-amber-dark transition-colors"
             >
@@ -88,21 +88,21 @@ export default function InventoryPage() {
             </button>
           </div>
         </div>
-        
+
         {/* Advanced Filters */}
         <div className="bg-bg-panel border border-white/5 p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input 
-              type="text" 
-              placeholder="Search by name or company..." 
+            <input
+              type="text"
+              placeholder="Search by name or company..."
               value={searchQueryInput}
               onChange={e => setSearchQueryInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleApplyFilters()}
               className="w-full pl-10 pr-4 py-2.5 bg-bg-dark border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-amber/50 transition-colors"
             />
           </div>
-          
+
           <select
             value={categoryFilterInput}
             onChange={e => setCategoryFilterInput(e.target.value)}
@@ -130,7 +130,7 @@ export default function InventoryPage() {
             </select>
           </div>
 
-          <button 
+          <button
             onClick={handleApplyFilters}
             className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-green/20 text-brand-green border border-brand-green/30 rounded-xl font-bold hover:bg-brand-green/30 transition-colors"
           >
@@ -203,14 +203,14 @@ export default function InventoryPage() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
+                        <button
                           onClick={() => handleEdit(item)}
                           className="p-2 text-text-muted hover:text-brand-amber hover:bg-brand-amber/10 rounded-lg transition-colors"
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(item.id)}
                           className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                           title="Delete"
@@ -228,15 +228,15 @@ export default function InventoryPage() {
       </div>
 
       {isModalOpen && (
-        <InventoryItemModal 
-          item={selectedItem} 
-          onClose={() => setIsModalOpen(false)} 
+        <InventoryItemModal
+          item={selectedItem}
+          onClose={() => setIsModalOpen(false)}
         />
       )}
 
       {isSupplierModalOpen && (
-        <SupplierManagerModal 
-          onClose={() => setIsSupplierModalOpen(false)} 
+        <SupplierManagerModal
+          onClose={() => setIsSupplierModalOpen(false)}
         />
       )}
     </div>
