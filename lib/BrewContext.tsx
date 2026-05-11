@@ -260,7 +260,8 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       customerName,
       shopName,
       quantity,
-      dateReserved: new Date().toISOString().split('T')[0]
+      dateReserved: new Date().toISOString().split('T')[0],
+      status: 'Pending Payment'
     };
 
     setKegBatches(prev => prev.map(kb => {

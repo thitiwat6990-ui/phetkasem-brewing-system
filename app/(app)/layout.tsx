@@ -1,5 +1,6 @@
 import AppShell from '@/components/AppShell';
 import { BrewProvider } from '@/lib/BrewContext';
+import { LanguageProvider } from '@/lib/i18nContext';
 import { cookies } from 'next/headers';
 
 export default async function AppLayout({
@@ -18,8 +19,10 @@ export default async function AppLayout({
   }
 
   return (
-    <BrewProvider>
-      <AppShell user={user}>{children}</AppShell>
-    </BrewProvider>
+    <LanguageProvider>
+      <BrewProvider>
+        <AppShell user={user}>{children}</AppShell>
+      </BrewProvider>
+    </LanguageProvider>
   );
 }

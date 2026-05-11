@@ -3,12 +3,14 @@
 import { useState, useMemo } from 'react';
 import { useBrew } from '@/lib/BrewContext';
 import { InventoryItem } from '@/lib/mockData';
+import { useLanguage } from '@/lib/i18nContext';
 import { Database, Plus, Search, Edit2, Trash2, Building2, Filter } from 'lucide-react';
 import InventoryItemModal from '@/components/InventoryItemModal';
 import SupplierManagerModal from '@/components/SupplierManagerModal';
 
 export default function InventoryPage() {
   const { inventory, deleteInventoryItem, suppliers } = useBrew();
+  const { t } = useLanguage();
 
   // States for Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,9 +69,9 @@ export default function InventoryPage() {
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
               <Database className="w-8 h-8 text-brand-amber" />
-              Inventory Management
+              {t('Inventory Management')}
             </h1>
-            <p className="text-text-secondary mt-2">Track raw materials and packaging supplies.</p>
+            <p className="text-text-secondary mt-2">{t('Track raw materials and packaging supplies.')}</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -77,14 +79,14 @@ export default function InventoryPage() {
               className="flex items-center gap-2 bg-white/5 text-white px-4 py-2 rounded-xl font-bold hover:bg-white/10 transition-colors border border-white/10"
             >
               <Building2 className="w-5 h-5" />
-              Manage Suppliers
+              {t('Manage Suppliers')}
             </button>
             <button
               onClick={() => { setSelectedItem(null); setIsModalOpen(true); }}
               className="flex items-center gap-2 bg-brand-amber text-black px-4 py-2 rounded-xl font-bold hover:bg-brand-amber-dark transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Add Item
+              {t('Add Item')}
             </button>
           </div>
         </div>
@@ -145,12 +147,12 @@ export default function InventoryPage() {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-black/20 border-b border-white/5">
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">Item Name</th>
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">Category</th>
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm text-right">Quantity</th>
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">Unit</th>
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">Status</th>
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm text-right">Actions</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">{t('Item Name')}</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">{t('Category')}</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm text-right">{t('Quantity')}</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">{t('Unit')}</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">{t('Status')}</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm text-right">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">

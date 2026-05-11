@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { useBrew } from '@/lib/BrewContext';
 import { Recipe } from '@/lib/mockData';
 import { BookOpen, Plus, Search, Droplets, Gauge, Trash2 } from 'lucide-react';
+import { useLanguage } from '@/lib/i18nContext';
 import RecipeDetailsModal from '@/components/RecipeDetailsModal';
 
 export default function RecipesPage() {
   const { recipes, addRecipe, deleteRecipe } = useBrew();
+  const { t } = useLanguage();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -45,9 +47,9 @@ export default function RecipesPage() {
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
             <BookOpen className="w-8 h-8 text-brand-amber" />
-            Recipe Library
+            {t('Recipe Library')}
           </h1>
-          <p className="text-text-secondary mt-2">Manage and explore your brewing recipes.</p>
+          <p className="text-text-secondary mt-2">{t('Manage and explore your brewing recipes.')}</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -55,7 +57,7 @@ export default function RecipesPage() {
             <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input 
               type="text" 
-              placeholder="Search recipes..." 
+              placeholder={t('Search recipes...')} 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 bg-bg-panel border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand-amber/50 transition-colors"
@@ -66,7 +68,7 @@ export default function RecipesPage() {
             className="flex items-center gap-2 bg-brand-amber text-black px-4 py-2 rounded-xl font-bold hover:bg-brand-amber-dark transition-colors"
           >
             <Plus className="w-5 h-5" />
-            New Recipe
+            {t('New Recipe')}
           </button>
         </div>
       </header>

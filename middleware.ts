@@ -3,13 +3,13 @@ import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('session');
-  const isLoginPage = request.nextUrl.pathname === '/login';
+  const isPublicPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register';
 
-  if (!session && !isLoginPage) {
+  if (!session && !isPublicPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (session && isLoginPage) {
+  if (session && isPublicPage) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

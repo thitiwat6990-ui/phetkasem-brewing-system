@@ -1,101 +1,81 @@
-import { MOCK_BATCHES, MOCK_RECIPES, BatchStage, Batch } from '@/lib/mockData';
-import { KanbanSquare, Thermometer, Droplets, Calendar, ChevronRight } from 'lucide-react';
+"use client";
 
-const STAGES: BatchStage[] = [
-  'Preparation',
-  'Mashing',
-  'Boiling',
-  'Fermentation',
-  'Conditioning',
-  'Packaged',
-];
+import { MOCK_BATCHES, MOCK_RECIPES, MOCK_TANKS } from '@/lib/mockData';
+import { KanbanSquare, Calendar } from 'lucide-react';
+import { useLanguage } from '@/lib/i18nContext';
 
 export default function BatchTrackerPage() {
-  // Helper to get recipe name
-  const getRecipeName = (recipeId: string) => {
-    return MOCK_RECIPES.find(r => r.id === recipeId)?.name || 'Unknown Recipe';
-  };
+  const { t } = useLanguage();
 
   return (
-    <div className="p-8 font-sans h-full flex flex-col max-w-[1600px] mx-auto">
+    <div className="p-8 font-sans max-w-7xl mx-auto h-full flex flex-col">
       <header className="mb-10 flex-shrink-0">
         <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
           <KanbanSquare className="w-8 h-8 text-brand-amber" />
-          Batch Tracker
+          {t('Batch Tracker')}
         </h1>
-        <p className="text-text-secondary mt-2">Monitor brewing stages across all active and past batches.</p>
+        <p className="text-text-secondary mt-2">{t('Monitor brewing stages across all active and past batches.')}</p>
       </header>
 
-      <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-6 min-w-max h-full">
-          {STAGES.map((stage, index) => {
-            const stageBatches = MOCK_BATCHES.filter(b => b.stage === stage);
-
-            return (
-              <div key={stage} className="w-80 flex flex-col bg-bg-panel/50 rounded-2xl border border-white/5 h-full overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-bg-panel flex items-center justify-between shadow-sm">
-                  <h3 className="font-bold text-white flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-white/10 text-xs flex items-center justify-center text-text-muted">
-                      {index + 1}
-                    </span>
-                    {stage}
-                  </h3>
-                  <span className="text-xs font-bold px-2 py-1 bg-white/5 rounded-lg text-text-muted">
-                    {stageBatches.length}
-                  </span>
-                </div>
-
-                <div className="p-4 flex-1 overflow-y-auto space-y-4">
-                  {stageBatches.map(batch => (
-                    <div
-                      key={batch.id}
-                      className="bg-bg-dark border border-white/10 p-4 rounded-xl shadow-lg hover:border-brand-amber/50 transition-all duration-200 cursor-grab active:cursor-grabbing group"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="font-black text-brand-amber tracking-wide">{batch.batchNumber}</span>
-                        <ChevronRight className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="flex-1 bg-bg-panel border border-white/5 rounded-2xl shadow-lg overflow-hidden flex flex-col">
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-black/40 text-xs uppercase tracking-wider text-text-muted font-bold border-b border-white/5">
+                <th className="p-4">{t('Batch Number')}</th>
+                <th className="p-4">{t('Date / Time')}</th>
+                <th className="p-4">{t('Recipe Name')}</th>
+                <th className="p-4">{t('Style')}</th>
+                <th className="p-4 text-center">{t('OG')}</th>
+                <th className="p-4 text-center">{t('FG')}</th>
+                <th className="p-4 text-right">{t('Tank')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {MOCK_BATCHES.map(batch => {
+                const recipe = MOCK_RECIPES.find(r => r.id === batch.recipeId);
+                const tank = MOCK_TANKS.find(t => t.currentBatchId === batch.id) || { name: 'N/A' };
+                
+                return (
+                  <tr key={batch.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="p-4">
+                      <span className="font-black text-brand-amber tracking-wide">{batch.batchNumber}</span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 text-sm text-white">
+                        <Calendar className="w-4 h-4 text-text-muted" />
+                        {batch.startDate}
                       </div>
-
-                      <h4 className="font-bold text-white mb-4">{getRecipeName(batch.recipeId)}</h4>
-
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-text-secondary">
-                          <Calendar className="w-4 h-4 text-text-muted" />
-                          <span>{batch.startDate}</span>
-                        </div>
-
-                        {batch.temperature !== undefined && (
-                          <div className="flex items-center gap-2 text-text-secondary">
-                            <Thermometer className="w-4 h-4 text-text-muted" />
-                            <span>{batch.temperature}°C</span>
-                          </div>
-                        )}
-
-                        {batch.specificGravity !== undefined && (
-                          <div className="flex items-center gap-2 text-text-secondary">
-                            <Droplets className="w-4 h-4 text-brand-amber/70" />
-                            <span>SG: {batch.specificGravity.toFixed(3)}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {batch.notes && (
-                        <div className="mt-4 pt-3 border-t border-white/5 text-xs text-text-muted italic">
-                          "{batch.notes}"
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {stageBatches.length === 0 && (
-                    <div className="h-24 border-2 border-dashed border-white/5 rounded-xl flex items-center justify-center text-text-muted text-sm font-medium">
-                      Drop here
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="p-4">
+                      <span className="font-bold text-white">{recipe?.name || 'Unknown Recipe'}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm text-text-secondary uppercase tracking-wider">{recipe?.style || '-'}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className="text-sm font-mono text-white">{recipe?.vitals?.originalGravity?.toFixed(3) || '-'}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className="text-sm font-mono text-brand-amber">{batch.specificGravity?.toFixed(3) || recipe?.vitals?.finalGravity?.toFixed(3) || '-'}</span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-white/5 text-text-muted">
+                        {tank.name}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {MOCK_BATCHES.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-text-muted italic">
+                    {t('No batches found')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

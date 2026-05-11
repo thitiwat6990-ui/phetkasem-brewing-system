@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useBrew } from '@/lib/BrewContext';
+import { useLanguage } from '@/lib/i18nContext';
 import { Activity, AlertTriangle, TrendingUp, Plus, Trash2, Calendar, Snowflake, Archive } from 'lucide-react';
 import TankSelectionModal from '@/components/TankSelectionModal';
 import KeggingModal from '@/components/KeggingModal';
@@ -9,6 +10,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 
 export default function Dashboard() {
   const { tanks, inventory, batches, recipes, cancelBrew, updateTankOg, coldCrashTank } = useBrew();
+  const { t } = useLanguage();
   const [selectedEmptyTankId, setSelectedEmptyTankId] = useState<string | null>(null);
   const [packagingTankId, setPackagingTankId] = useState<string | null>(null);
 
@@ -108,27 +110,35 @@ export default function Dashboard() {
       <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-            Brewery Overview
+            {t('Brewery Overview')}
           </h1>
-          <p className="text-text-secondary mt-2">Monitor your production zones and fermentor tanks.</p>
+          <p className="text-text-secondary mt-2">{t('Monitor your production zones and fermentor tanks.')}</p>
         </div>
         
         {/* Date Filter */}
-        <div className="flex items-center gap-3 bg-bg-panel p-3 rounded-xl border border-white/10 shadow-lg">
-          <Calendar className="w-5 h-5 text-brand-amber" />
-          <div className="flex items-center gap-2 text-sm font-bold text-white">
+        <div className="flex items-center gap-4 relative z-20">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-text-secondary flex items-center gap-1.5 uppercase tracking-wider">
+              <Calendar className="w-3.5 h-3.5 text-brand-amber" />
+              {t('From Date')}
+            </label>
             <input 
               type="date" 
               value={startDate} 
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-bg-dark border border-white/20 rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-amber"
+              className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-40 shadow-lg cursor-pointer transition-all"
             />
-            <span className="text-text-muted">to</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-text-secondary flex items-center gap-1.5 uppercase tracking-wider">
+              <Calendar className="w-3.5 h-3.5 text-brand-amber" />
+              {t('To Date')}
+            </label>
             <input 
               type="date" 
               value={endDate} 
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-bg-dark border border-white/20 rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-amber"
+              className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-40 shadow-lg cursor-pointer transition-all"
             />
           </div>
         </div>
@@ -140,7 +150,7 @@ export default function Dashboard() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-brand-amber/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Available Tanks</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Available Tanks')}</p>
               <h3 className="text-4xl font-black text-white">{availableTanksCount}</h3>
             </div>
             <div className="p-3 bg-brand-amber/20 text-brand-amber rounded-xl shrink-0">
@@ -153,7 +163,7 @@ export default function Dashboard() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-brand-amber/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Batches Brewed</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Batches Brewed')}</p>
               <h3 className="text-4xl font-black text-white">{batchesThisMonth}</h3>
             </div>
             <div className="p-3 bg-brand-amber/20 text-brand-amber rounded-xl shrink-0">
@@ -166,7 +176,7 @@ export default function Dashboard() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-red-500/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Low Inventory</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Low Inventory')}</p>
               <h3 className="text-4xl font-black text-white">{lowInventoryCount}</h3>
             </div>
             <div className="p-3 bg-red-500/20 text-red-500 rounded-xl shrink-0">
@@ -179,7 +189,7 @@ export default function Dashboard() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-brand-green/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Total Production</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Total Production')}</p>
               <h3 className="text-4xl font-black text-white mt-1">{totalVolume} L</h3>
             </div>
             <div className="p-3 bg-brand-green/20 text-brand-green rounded-xl shrink-0">
@@ -281,8 +291,8 @@ export default function Dashboard() {
         
         {/* Pie Chart: Recipe Distribution */}
         <div className="bg-bg-panel border border-white/5 rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-2">Monthly Brews Summary</h2>
-          <p className="text-sm text-text-muted mb-6">Distribution of recipes brewed in the selected period.</p>
+          <h2 className="text-xl font-bold text-white mb-2">{t('Monthly Brews Summary')}</h2>
+          <p className="text-sm text-text-muted mb-6">{t('Distribution of recipes brewed in the selected period.')}</p>
           
           <div className="h-64">
             {pieData.length > 0 ? (
@@ -319,18 +329,18 @@ export default function Dashboard() {
           {mostBrewed && (
             <div className="mt-4 p-4 bg-brand-amber/10 border border-brand-amber/20 rounded-xl flex justify-between items-center">
               <div>
-                <p className="text-xs font-bold text-brand-amber uppercase tracking-wider">Most Brewed</p>
+                <p className="text-xs font-bold text-brand-amber uppercase tracking-wider">{t('Most Brewed')}</p>
                 <p className="text-white font-bold mt-1">{mostBrewed.name}</p>
               </div>
-              <div className="text-2xl font-black text-brand-amber">{mostBrewed.value} <span className="text-sm font-bold">batches</span></div>
+              <div className="text-2xl font-black text-brand-amber">{mostBrewed.value} <span className="text-sm font-bold">{t('batches')}</span></div>
             </div>
           )}
         </div>
 
         {/* Bar Chart: Target vs Actual OG */}
         <div className="bg-bg-panel border border-white/5 rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-2">Gravity Accuracy (Target vs Actual OG)</h2>
-          <p className="text-sm text-text-muted mb-6">Comparing recipe target original gravity against actual reading.</p>
+          <h2 className="text-xl font-bold text-white mb-2">{t('Gravity Accuracy (Target vs Actual OG)')}</h2>
+          <p className="text-sm text-text-muted mb-6">{t('Comparing recipe target original gravity against actual reading.')}</p>
           
           <div className="h-64 mt-4">
             {barData.length > 0 ? (

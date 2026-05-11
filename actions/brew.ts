@@ -1,7 +1,7 @@
 "use server"
 
 import { z } from 'zod';
-import db from '@/lib/db';
+import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 const brewSchema = z.object({
@@ -23,79 +23,89 @@ export async function startBrewAction(formData: FormData) {
   }
 
   const { tankId, recipeId, volume } = parseResult.data;
+  const client = await db.connect();
 
   try {
-    // Better-sqlite3 transaction ensures atomicity
-    const executeBrewTransaction = db.transaction(() => {
-      // 1. Validate tank is empty and exists
-      const tank = db.prepare('SELECT capacity, is_active FROM tanks WHERE id = ?').get(tankId) as { capacity: number; is_active: number } | undefined;
-      if (!tank) throw new Error('Tank not found.');
-      if (tank.is_active) throw new Error('Tank is already active.');
-      if (volume > tank.capacity) throw new Error(`Volume exceeds tank capacity of ${tank.capacity}L.`);
+    await client.sql`BEGIN`;
 
-      // 2. Calculate required materials
-      const ingredients = db.prepare('SELECT material_id, amount_per_liter FROM recipe_ingredients WHERE recipe_id = ?').all(recipeId) as Array<{ material_id: number; amount_per_liter: number }>;
+    // 1. Validate tank is empty and exists
+    const tankResult = await client.sql`SELECT capacity, is_active FROM tanks WHERE id = ${tankId}`;
+    const tank = tankResult.rows[0];
+    
+    if (!tank) throw new Error('Tank not found.');
+    if (tank.is_active) throw new Error('Tank is already active.');
+    if (volume > tank.capacity) throw new Error(`Volume exceeds tank capacity of ${tank.capacity}L.`);
+
+    // 2. Calculate required materials
+    const ingredientsResult = await client.sql`SELECT material_id, amount_per_liter FROM recipe_ingredients WHERE recipe_id = ${recipeId}`;
+    const ingredients = ingredientsResult.rows;
+    
+    // 3. Validate stock availability
+    for (const ingredient of ingredients) {
+      const requiredAmount = ingredient.amount_per_liter * volume;
+      const materialResult = await client.sql`SELECT name, quantity FROM materials WHERE id = ${ingredient.material_id}`;
+      const material = materialResult.rows[0];
       
-      // 3. Validate stock availability
-      for (const ingredient of ingredients) {
-        const requiredAmount = ingredient.amount_per_liter * volume;
-        const material = db.prepare('SELECT name, quantity FROM materials WHERE id = ?').get(ingredient.material_id) as { name: string; quantity: number } | undefined;
-        
-        if (!material) throw new Error('Material not found.');
-        if (material.quantity < requiredAmount) {
-          throw new Error(`Insufficient stock for ${material.name}. Required: ${requiredAmount}, Available: ${material.quantity}`);
-        }
+      if (!material) throw new Error('Material not found.');
+      if (material.quantity < requiredAmount) {
+        throw new Error(`Insufficient stock for ${material.name}. Required: ${requiredAmount}, Available: ${material.quantity}`);
       }
+    }
 
-      // 4. Deduct materials
-      const updateMaterial = db.prepare('UPDATE materials SET quantity = quantity - ? WHERE id = ?');
-      for (const ingredient of ingredients) {
-        const requiredAmount = ingredient.amount_per_liter * volume;
-        updateMaterial.run(requiredAmount, ingredient.material_id);
-      }
+    // 4. Deduct materials
+    for (const ingredient of ingredients) {
+      const requiredAmount = ingredient.amount_per_liter * volume;
+      await client.sql`UPDATE materials SET quantity = quantity - ${requiredAmount} WHERE id = ${ingredient.material_id}`;
+    }
 
-      // 5. Create brew_batch
-      const brewDate = new Date().toISOString(); // Store UTC
-      const insertBrew = db.prepare(`
-        INSERT INTO brew_batches (recipe_id, tank_id, volume, brew_date, status)
-        VALUES (?, ?, ?, ?, 'fermenting')
-      `);
-      const brewResult = insertBrew.run(recipeId, tankId, volume, brewDate);
+    // 5. Create brew_batch
+    const brewDate = new Date().toISOString(); // Store UTC
+    const insertBrewResult = await client.sql`
+      INSERT INTO brew_batches (recipe_id, tank_id, volume, brew_date, status)
+      VALUES (${recipeId}, ${tankId}, ${volume}, ${brewDate}, 'fermenting')
+      RETURNING id
+    `;
+    const newBatchId = insertBrewResult.rows[0].id;
 
-      // 6. Mark tank as active
-      db.prepare('UPDATE tanks SET is_active = 1 WHERE id = ?').run(tankId);
+    // 6. Mark tank as active
+    await client.sql`UPDATE tanks SET is_active = true WHERE id = ${tankId}`;
 
-      // 7. Write audit logs
-      const insertLog = db.prepare('INSERT INTO logs (type, message) VALUES (?, ?)');
-      insertLog.run('brew', `Started brew batch #${brewResult.lastInsertRowid} in Tank #${tankId} with ${volume}L`);
-      insertLog.run('stock', `Deducted materials for brew batch #${brewResult.lastInsertRowid}`);
-    });
+    // 7. Write audit logs
+    await client.sql`INSERT INTO logs (type, message) VALUES ('brew', ${`Started brew batch #${newBatchId} in Tank #${tankId} with ${volume}L`})`;
+    await client.sql`INSERT INTO logs (type, message) VALUES ('stock', ${`Deducted materials for brew batch #${newBatchId}`})`;
 
-    executeBrewTransaction();
-    revalidatePath('/');
-    return { success: true };
+    await client.sql`COMMIT`;
   } catch (err: any) {
+    await client.sql`ROLLBACK`;
     return { success: false, error: err.message || 'An unexpected error occurred during the transaction.' };
+  } finally {
+    client.release();
   }
+
+  revalidatePath('/');
+  return { success: true };
 }
 
 export async function getBrewDetailsAction(batchId: number, recipeId: number) {
+  const client = await db.connect();
   try {
-    const ingredients = db.prepare(`
+    const ingredientsResult = await client.sql`
       SELECT m.name, m.unit, ri.amount_per_liter 
       FROM recipe_ingredients ri
       JOIN materials m ON ri.material_id = m.id
-      WHERE ri.recipe_id = ?
-    `).all(recipeId) as any[];
+      WHERE ri.recipe_id = ${recipeId}
+    `;
 
-    const reservations = db.prepare(`
+    const reservationsResult = await client.sql`
       SELECT customer_name, quantity, created_at 
       FROM reservations 
-      WHERE brew_batch_id = ?
-    `).all(batchId) as any[];
+      WHERE brew_batch_id = ${batchId}
+    `;
 
-    return { success: true, ingredients, reservations };
+    return { success: true, ingredients: ingredientsResult.rows, reservations: reservationsResult.rows };
   } catch (err: any) {
     return { success: false, error: err.message };
+  } finally {
+    client.release();
   }
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import db from '@/lib/db';
+import { sql } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -14,7 +14,8 @@ export async function loginAction(prevState: any, formData: FormData) {
   }
 
   try {
-    const user = db.prepare('SELECT id, username, password_hash, role FROM users WHERE username = ?').get(username) as any;
+    const { rows } = await sql`SELECT id, username, password_hash, role FROM users WHERE username = ${username}`;
+    const user = rows[0];
 
     if (!user) {
       return { success: false, error: 'Invalid username or password.' };
@@ -35,7 +36,8 @@ export async function loginAction(prevState: any, formData: FormData) {
     });
 
   } catch (error: any) {
-    return { success: false, error: 'An error occurred during login.' };
+    console.error("Login error:", error);
+    return { success: false, error: 'An error occurred during login: ' + error.message };
   }
   
   redirect('/');
@@ -45,8 +47,12 @@ export async function registerAction(prevState: any, formData: FormData) {
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
   const confirmPassword = formData.get('confirm_password') as string;
+  const firstName = formData.get('first_name') as string;
+  const lastName = formData.get('last_name') as string;
+  const phone = formData.get('phone') as string;
+  const email = formData.get('email') as string;
 
-  if (!username || !password || !confirmPassword) {
+  if (!username || !password || !confirmPassword || !firstName || !lastName || !phone || !email) {
     return { success: false, error: 'All fields are required.' };
   }
 
@@ -55,18 +61,22 @@ export async function registerAction(prevState: any, formData: FormData) {
   }
 
   try {
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (existingUser) {
+    const { rowCount } = await sql`SELECT id FROM users WHERE username = ${username}`;
+    if (rowCount && rowCount > 0) {
       return { success: false, error: 'Username already exists.' };
     }
 
     const hash = bcrypt.hashSync(password, 10);
-    const insert = db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
-    const result = insert.run(username, hash, 'brewer');
+    const result = await sql`
+      INSERT INTO users (username, password_hash, first_name, last_name, phone, email, role) 
+      VALUES (${username}, ${hash}, ${firstName}, ${lastName}, ${phone}, ${email}, 'employee')
+      RETURNING id
+    `;
+    const newUserId = result.rows[0].id;
 
     // Automatically log in the new user
     const cookieStore = await cookies();
-    cookieStore.set('session', JSON.stringify({ id: result.lastInsertRowid, username, role: 'brewer' }), {
+    cookieStore.set('session', JSON.stringify({ id: newUserId, username, role: 'employee' }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24 * 7, // 1 week
@@ -74,7 +84,8 @@ export async function registerAction(prevState: any, formData: FormData) {
     });
 
   } catch (error: any) {
-    return { success: false, error: 'An error occurred during registration.' };
+    console.error("Registration error:", error);
+    return { success: false, error: 'An error occurred during registration: ' + error.message };
   }
   
   redirect('/');

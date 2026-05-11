@@ -2,20 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Database, BookOpen, KanbanSquare, LogOut, User, Beer, Clock, Archive } from 'lucide-react';
+import { LayoutDashboard, Database, BookOpen, KanbanSquare, LogOut, User, Beer, Clock, Archive, Globe, Users } from 'lucide-react';
 import { logoutAction } from '@/actions/auth';
+import { useLanguage } from '@/lib/i18nContext';
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Inventory', href: '/inventory', icon: Database },
-  { name: 'Keg Stock', href: '/kegs', icon: Archive },
-  { name: 'Batch Tracker', href: '/batches', icon: KanbanSquare },
-  { name: 'Recipes', href: '/recipes', icon: BookOpen },
-  { name: 'History', href: '/history', icon: Clock },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['employee', 'Master brewer', 'admin'] },
+  { name: 'Inventory', href: '/inventory', icon: Database, roles: ['employee', 'Master brewer', 'admin'] },
+  { name: 'Keg Stock', href: '/kegs', icon: Archive, roles: ['employee', 'Master brewer', 'admin'] },
+  { name: 'Batch Tracker', href: '/batches', icon: KanbanSquare, roles: ['Master brewer', 'admin'] },
+  { name: 'Recipes', href: '/recipes', icon: BookOpen, roles: ['Master brewer', 'admin'] },
+  { name: 'History', href: '/history', icon: Clock, roles: ['Master brewer', 'admin'] },
+  { name: 'Admin', href: '/admin', icon: Users, roles: ['Master brewer', 'admin'] },
 ];
 
 export default function Sidebar({ user, onClose }: { user?: { username: string; role: string }, onClose?: () => void }) {
   const pathname = usePathname();
+  const { t, language, setLanguage } = useLanguage();
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'en' ? 'th' : 'en');
+  };
+
 
   return (
     <aside className="w-64 h-full bg-bg-panel border-r border-white/5 flex flex-col shrink-0">
@@ -24,14 +32,34 @@ export default function Sidebar({ user, onClose }: { user?: { username: string; 
         <div className="w-10 h-10 bg-brand-amber/10 border border-brand-amber/20 rounded-xl flex items-center justify-center shadow-sm">
           <Beer className="w-6 h-6 text-brand-amber" />
         </div>
-        <h1 className="text-sm font-black tracking-wide text-white uppercase leading-tight">Phetkasem<br/>brewery system</h1>
+        <h1 className="text-sm font-black tracking-wide text-white uppercase leading-tight">{t('Phetkasem brewery system')}</h1>
+      </div>
+
+      <div className="px-6 mb-6">
+        <button 
+          onClick={toggleLanguage}
+          className="flex items-center justify-between w-full p-2 rounded-lg bg-black/20 border border-white/5 hover:border-brand-amber/30 transition-colors group"
+        >
+          <div className="flex items-center gap-2 text-text-secondary group-hover:text-white transition-colors">
+            <Globe className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase">{language === 'en' ? 'English' : 'ภาษาไทย'}</span>
+          </div>
+          <span className="text-[10px] font-black text-brand-amber px-1.5 py-0.5 rounded bg-brand-amber/10">
+            {language.toUpperCase()}
+          </span>
+        </button>
       </div>
 
       <div className="h-px bg-white/5 mx-6 mb-6"></div>
 
       {/* Navigation */}
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => {
+        {navItems
+          .filter(item => {
+            const userRole = user?.role || 'employee'; // fallback
+            return item.roles.includes(userRole) || userRole === 'admin';
+          })
+          .map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
           
@@ -47,7 +75,7 @@ export default function Sidebar({ user, onClose }: { user?: { username: string; 
               }`}
             >
               <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-black' : 'text-text-secondary group-hover:text-white'}`} />
-              <span>{item.name}</span>
+              <span>{t(item.name)}</span>
             </Link>
           );
         })}
@@ -61,7 +89,7 @@ export default function Sidebar({ user, onClose }: { user?: { username: string; 
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider truncate">
-              {user?.role === 'admin' ? 'SYSTEM ADMIN' : (user?.role || 'BREWER')}
+              {user?.role === 'admin' ? t('SYSTEM ADMIN') : (user?.role === 'Master brewer' ? 'MASTER BREWER' : t('BREWER'))}
             </div>
             <div className="text-sm font-bold text-white truncate">
               @{user?.username || 'brewer'}

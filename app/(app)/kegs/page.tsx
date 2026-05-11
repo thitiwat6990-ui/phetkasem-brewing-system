@@ -6,11 +6,13 @@ import {
   Archive, DollarSign, TrendingUp, ShoppingCart, Calendar,
   Filter, Users, Truck, CheckCircle, Clock
 } from 'lucide-react';
+import { useLanguage } from '@/lib/i18nContext';
 import KegReservationModal from '@/components/KegReservationModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, Cell } from 'recharts';
 
 export default function KegStockPage() {
   const { kegBatches, recipes } = useBrew();
+  const { t } = useLanguage();
   const [selectedKegBatchId, setSelectedKegBatchId] = useState<string | null>(null);
 
   // States ใหม่สำหรับฟีเจอร์ที่เพิ่มเข้ามา
@@ -135,9 +137,9 @@ export default function KegStockPage() {
     <div className="p-8 font-sans max-w-7xl mx-auto">
       <header className="mb-10">
         <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          Keg Stock & Sales
+          {t('Keg Stock & Sales')}
         </h1>
-        <p className="text-text-secondary mt-2">Manage packaged kegs, track reservations, and view sales analytics.</p>
+        <p className="text-text-secondary mt-2">{t('Manage packaged kegs, track reservations, and view sales analytics.')}</p>
       </header>
 
       {/* Metrics Section */}
@@ -146,7 +148,7 @@ export default function KegStockPage() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-brand-green/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Total Revenue</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Total Revenue')}</p>
               <h3 className="text-4xl font-black text-white">฿ {totalRevenue.toLocaleString()}</h3>
             </div>
             <div className="p-3 bg-brand-green/20 text-brand-green rounded-xl shrink-0">
@@ -159,7 +161,7 @@ export default function KegStockPage() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Total Kegs Sold</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Total Kegs Sold')}</p>
               <h3 className="text-4xl font-black text-white">{totalKegsSold}</h3>
             </div>
             <div className="p-3 bg-blue-500/20 text-blue-500 rounded-xl shrink-0">
@@ -172,7 +174,7 @@ export default function KegStockPage() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-brand-amber/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Active Keg Batches</p>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Active Keg Batches')}</p>
               <h3 className="text-4xl font-black text-white">{activeKegBatchesCount}</h3>
             </div>
             <div className="p-3 bg-brand-amber/20 text-brand-amber rounded-xl shrink-0">
@@ -186,8 +188,8 @@ export default function KegStockPage() {
 
         {/* Top Selling Chart */}
         <div className="lg:col-span-1 bg-bg-panel border border-white/5 rounded-2xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-2">Best Selling Recipes</h2>
-          <p className="text-sm text-text-muted mb-6">Top recipes by kegs sold.</p>
+          <h2 className="text-xl font-bold text-white mb-2">{t('Best Selling Recipes')}</h2>
+          <p className="text-sm text-text-muted mb-6">{t('Top recipes by kegs sold.')}</p>
 
           <div className="h-64">
             {salesByRecipeData.length > 0 ? (
@@ -219,7 +221,7 @@ export default function KegStockPage() {
         <div className="lg:col-span-2 bg-bg-panel border border-white/5 rounded-2xl shadow-lg overflow-hidden flex flex-col">
           <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-black/20">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Archive className="w-5 h-5 text-brand-amber" /> Current Keg Stock
+              <Archive className="w-5 h-5 text-brand-amber" /> {t('Current Keg Stock')}
             </h2>
 
             {/* Filter by Style */}
