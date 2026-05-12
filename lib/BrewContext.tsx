@@ -247,6 +247,8 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: 'Successfully packaged kegs and emptied tank.' };
   };
 
+  // ค้นหาฟังก์ชัน addKegReservation ในไฟล์ของคุณแล้วแก้เป็นส่วนนี้ครับ
+
   const addKegReservation = (kegBatchId: string, customerName: string, shopName: string, quantity: number) => {
     const kegBatch = kegBatches.find(kb => kb.id === kegBatchId);
     if (!kegBatch) return { success: false, message: 'Keg batch not found.' };
@@ -261,7 +263,7 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       shopName,
       quantity,
       dateReserved: new Date().toISOString().split('T')[0],
-      status: 'Pending Payment'
+      status: 'Pending Payment' // <--- เพิ่มบรรทัดนี้เข้าไปเพื่อให้ตรงตาม Type KegReservation
     };
 
     setKegBatches(prev => prev.map(kb => {
