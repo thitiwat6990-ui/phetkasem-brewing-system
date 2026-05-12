@@ -11,25 +11,25 @@ type BrewContextType = {
   logs: LogEntry[];
   batches: Batch[];
   kegBatches: KegBatch[];
-  
+
   startBrew: (tankId: string, recipeId: string) => { success: boolean; message: string };
   cancelBrew: (tankId: string) => { success: boolean; message: string };
   updateTankOg: (tankId: string, og: number) => void;
   coldCrashTank: (tankId: string) => { success: boolean; message: string };
   packageKegs: (tankId: string, totalKegs: number, litersPerKeg: number, pricePerKeg: number, shippingCost: number) => { success: boolean; message: string };
   addKegReservation: (kegBatchId: string, customerName: string, shopName: string, quantity: number) => { success: boolean; message: string };
-  
+
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
   updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => void;
   deleteInventoryItem: (id: string) => void;
-  
+
   addSupplier: (name: string) => void;
   deleteSupplier: (name: string) => void;
-  
+
   addRecipe: (recipe: Omit<Recipe, 'id'>) => void;
   updateRecipe: (id: string, updates: Partial<Recipe>) => void;
   deleteRecipe: (id: string) => void;
-  
+
   addLog: (action: string, details: string) => void;
 };
 
@@ -72,7 +72,7 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
         missingItems.push(`Missing ${ing.quantity - invItem.quantity} ${invItem.unit} of ${invItem.name}`);
       }
     }
-    
+
     if (missingItems.length > 0) {
       return { success: false, message: `Insufficient inventory:\n${missingItems.join('\n')}` };
     }
@@ -104,10 +104,10 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     // Update tank
     setTanks(prev => prev.map(t => {
       if (t.id === tankId) {
-        return { 
-          ...t, 
-          status: 'Brewing', 
-          currentRecipeId: recipeId, 
+        return {
+          ...t,
+          status: 'Brewing',
+          currentRecipeId: recipeId,
           currentBatchId: newBatch.id,
           startDate: new Date().toISOString().split('T')[0],
           currentOg: recipe.vitals?.originalGravity || 1.050
@@ -127,7 +127,7 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     }
 
     const recipe = recipes.find(r => r.id === tank.currentRecipeId);
-    
+
     // Refund inventory if recipe is found
     if (recipe) {
       setInventory(prev => prev.map(item => {
@@ -152,10 +152,10 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     // Reset tank
     setTanks(prev => prev.map(t => {
       if (t.id === tankId) {
-        return { 
-          ...t, 
-          status: 'Empty', 
-          currentRecipeId: undefined, 
+        return {
+          ...t,
+          status: 'Empty',
+          currentRecipeId: undefined,
           currentBatchId: undefined,
           startDate: undefined,
           currentOg: undefined
@@ -231,10 +231,10 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     // Empty tank
     setTanks(prev => prev.map(t => {
       if (t.id === tankId) {
-        return { 
-          ...t, 
-          status: 'Empty', 
-          currentRecipeId: undefined, 
+        return {
+          ...t,
+          status: 'Empty',
+          currentRecipeId: undefined,
           currentBatchId: undefined,
           startDate: undefined,
           currentOg: undefined
@@ -291,7 +291,7 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
-    setInventory(prev => prev.map(item => 
+    setInventory(prev => prev.map(item =>
       item.id === id ? { ...item, ...updates } : item
     ));
     addLog('UPDATED_INVENTORY', `Updated item ID: ${id}`);
@@ -325,7 +325,7 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateRecipe = (id: string, updates: Partial<Recipe>) => {
-    setRecipes(prev => prev.map(recipe => 
+    setRecipes(prev => prev.map(recipe =>
       recipe.id === id ? { ...recipe, ...updates } : recipe
     ));
     addLog('UPDATED_RECIPE', `Updated recipe ID: ${id}`);
@@ -338,22 +338,22 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <BrewContext.Provider value={{ 
-      tanks, 
-      inventory, 
+    <BrewContext.Provider value={{
+      tanks,
+      inventory,
       suppliers,
       recipes,
       logs,
       batches,
       kegBatches,
-      startBrew, 
+      startBrew,
       cancelBrew,
       updateTankOg,
       coldCrashTank,
       packageKegs,
       addKegReservation,
-      addInventoryItem, 
-      updateInventoryItem, 
+      addInventoryItem,
+      updateInventoryItem,
       deleteInventoryItem,
       addSupplier,
       deleteSupplier,
