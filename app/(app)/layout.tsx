@@ -2,6 +2,7 @@ import AppShell from '@/components/AppShell';
 import { BrewProvider } from '@/lib/BrewContext';
 import { LanguageProvider } from '@/lib/i18nContext';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export default async function AppLayout({
   children,
@@ -12,10 +13,14 @@ export default async function AppLayout({
   const sessionCookie = cookieStore.get('session');
   
   let user;
-  if (sessionCookie) {
+  if (sessionCookie && sessionCookie.value) {
     try {
       user = JSON.parse(sessionCookie.value);
-    } catch (e) {}
+    } catch (e) {
+      redirect('/login');
+    }
+  } else {
+    redirect('/login');
   }
 
   return (
