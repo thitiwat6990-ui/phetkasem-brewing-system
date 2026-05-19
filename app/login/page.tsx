@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { loginAction } from '@/actions/auth';
 import { Beer, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
@@ -18,7 +19,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 bg-brand-amber/10 border border-brand-amber/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_15px_rgba(255,191,0,0.2)]">
             <Beer className="w-8 h-8 text-brand-amber" />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-wider uppercase">Phetkasem</h1>
+          <h1 className="text-3xl font-black text-white tracking-wider uppercase">Phetkasem Brewing</h1>
           <p className="text-brand-amber mt-1 font-bold text-sm tracking-widest uppercase">Brewery System</p>
         </div>
         
@@ -52,6 +53,12 @@ export default function LoginPage() {
                 <p>{state.error}</p>
               </div>
             )}
+
+            <div className="flex justify-end mt-2">
+              <Link href="/forgot-password" className="text-sm font-bold text-brand-amber hover:text-white transition-colors">
+                Forgot password?
+              </Link>
+            </div>
 
             <button 
               type="submit" 

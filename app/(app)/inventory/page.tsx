@@ -204,7 +204,7 @@ export default function InventoryPage() {
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleEdit(item)}
                           className="p-2 text-text-muted hover:text-brand-amber hover:bg-brand-amber/10 rounded-lg transition-colors"

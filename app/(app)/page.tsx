@@ -6,13 +6,15 @@ import { useLanguage } from '@/lib/i18nContext';
 import { Activity, AlertTriangle, TrendingUp, Plus, Trash2, Calendar, Snowflake, Archive } from 'lucide-react';
 import TankSelectionModal from '@/components/TankSelectionModal';
 import KeggingModal from '@/components/KeggingModal';
+import ActiveTankModal from '@/components/ActiveTankModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 export default function Dashboard() {
-  const { tanks, inventory, batches, recipes, cancelBrew, updateTankOg, coldCrashTank } = useBrew();
+  const { tanks, inventory, batches, recipes, cancelBrew, updateTankOg, updateTankPh, coldCrashTank } = useBrew();
   const { t } = useLanguage();
   const [selectedEmptyTankId, setSelectedEmptyTankId] = useState<string | null>(null);
   const [packagingTankId, setPackagingTankId] = useState<string | null>(null);
+  const [detailsTankId, setDetailsTankId] = useState<string | null>(null);
 
   // Date Filter State (Default to current month)
   const now = new Date();
@@ -29,9 +31,9 @@ export default function Dashboard() {
   // Computed metrics from context
   const availableTanksCount = tanks.filter(t => t.status === 'Empty').length;
   const batchesThisMonth = filteredBatches.length;
-  const totalVolume = filteredBatches.reduce((sum, b) => { 
-    const r = recipes.find(rec => rec.id === b.recipeId); 
-    return sum + (r?.process?.batchVolume || 0); 
+  const totalVolume = filteredBatches.reduce((sum, b) => {
+    const r = recipes.find(rec => rec.id === b.recipeId);
+    return sum + (r?.process?.batchVolume || 0);
   }, 0);
   const lowInventoryCount = inventory.filter(i => i.status === 'Low' || i.status === 'Out of Stock').length;
 
@@ -68,6 +70,13 @@ export default function Dashboard() {
     }
   };
 
+  const handlePhChange = (e: React.ChangeEvent<HTMLInputElement>, tankId: string) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val)) {
+      updateTankPh(tankId, val);
+    }
+  };
+
   // --- Charts Data Preparation ---
 
   // Pie Chart: Most Brewed Recipes
@@ -90,11 +99,11 @@ export default function Dashboard() {
     return filteredBatches.map(b => {
       const recipe = recipes.find(r => r.id === b.recipeId);
       const targetOg = recipe?.vitals?.originalGravity || 1.050;
-      
+
       // Try to find if this batch is currently in a tank to get live actual OG, otherwise use specificGravity or target as fallback
       const activeTank = tanks.find(t => t.currentBatchId === b.id);
       const actualOg = activeTank?.currentOg || b.specificGravity || targetOg;
-      
+
       return {
         name: b.batchNumber,
         recipeName: recipe?.name || 'Unknown',
@@ -114,7 +123,7 @@ export default function Dashboard() {
           </h1>
           <p className="text-text-secondary mt-2">{t('Monitor your production zones and fermentor tanks.')}</p>
         </div>
-        
+
         {/* Date Filter */}
         <div className="flex items-center gap-4 relative z-20">
           <div className="flex flex-col gap-1.5">
@@ -122,10 +131,13 @@ export default function Dashboard() {
               <Calendar className="w-3.5 h-3.5 text-brand-amber" />
               {t('From Date')}
             </label>
-            <input 
-              type="date" 
-              value={startDate} 
+            <input
+              type="date"
+              value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              onClick={(e) => {
+                try { e.currentTarget.showPicker(); } catch (err) {}
+              }}
               className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-40 shadow-lg cursor-pointer transition-all"
             />
           </div>
@@ -134,10 +146,13 @@ export default function Dashboard() {
               <Calendar className="w-3.5 h-3.5 text-brand-amber" />
               {t('To Date')}
             </label>
-            <input 
-              type="date" 
-              value={endDate} 
+            <input
+              type="date"
+              value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              onClick={(e) => {
+                try { e.currentTarget.showPicker(); } catch (err) {}
+              }}
               className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-40 shadow-lg cursor-pointer transition-all"
             />
           </div>
@@ -200,7 +215,7 @@ export default function Dashboard() {
       </div>
 
       {/* Production Zones (4 Boxes) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      <div className="grid grid-cols-1 gap-8 mb-10">
         {zones.map(zone => (
           <div key={zone.id} className="bg-bg-panel border border-white/5 rounded-2xl shadow-lg p-6 hover:border-brand-amber/30 transition-colors duration-300">
             <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-6">
@@ -208,79 +223,102 @@ export default function Dashboard() {
                 Zone {zone.id}
               </div>
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {zone.tanks.map(tank => (
-                <div 
-                  key={tank.id} 
-                  onClick={() => tank.status === 'Empty' && setSelectedEmptyTankId(tank.id)}
-                  className={`relative p-4 rounded-xl border transition-all duration-200 flex flex-col items-center text-center ${
-                    tank.status === 'Empty' 
-                      ? 'bg-bg-dark border-white/10 hover:border-brand-amber hover:shadow-[0_0_15px_rgba(255,191,0,0.2)] cursor-pointer group' 
-                      : tank.status === 'ColdCrash'
-                      ? 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] cursor-default'
-                      : 'bg-brand-amber/5 border-brand-amber/30 cursor-default'
-                  }`}
+              {zone.tanks.map(tank => {
+                const recipe = recipes.find(r => r.id === tank.currentRecipeId);
+                const daysFermenting = tank.startDate ? Math.max(0, Math.floor((Date.now() - new Date(tank.startDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+                const daysColdCrashing = tank.coldCrashStartDate ? Math.max(0, Math.floor((Date.now() - new Date(tank.coldCrashStartDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+                const dryHops = recipe?.hops?.filter(h => h.use === 'Dry Hop') || [];
+                const dryHopDaySetting = recipe?.process?.dryHopDay || (dryHops.length > 0 ? Math.min(...dryHops.map(h => h.time || 0)) : null);
+                const dryHopDue = tank.status === 'Brewing' && dryHopDaySetting !== null && !tank.dryHopCompleted && daysFermenting >= dryHopDaySetting;
+                const isBlue = tank.status === 'Brewing' && daysFermenting >= 14;
+                const isPurple = tank.status === 'ColdCrash' && daysColdCrashing >= 2;
+
+                return (
+                <div
+                  key={tank.id}
+                  onClick={() => {
+                    if (tank.status === 'Empty') setSelectedEmptyTankId(tank.id);
+                    else setDetailsTankId(tank.id);
+                  }}
+                  className={`relative p-4 rounded-xl border transition-all duration-200 flex flex-col items-center text-center ${tank.status === 'Empty'
+                    ? 'bg-bg-dark border-white/10 hover:border-brand-amber hover:shadow-[0_0_15px_rgba(255,191,0,0.2)] cursor-pointer group'
+                    : tank.status === 'ColdCrash'
+                      ? isPurple ? 'bg-purple-500/10 border-purple-500/80 shadow-[0_0_15px_rgba(168,85,247,0.3)] cursor-default' : 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] cursor-default'
+                      : isBlue ? 'bg-blue-500/10 border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.3)] cursor-default' : 'bg-brand-amber/5 border-brand-amber/30 cursor-default'
+                    }`}
                 >
+                  {dryHopDue && (
+                    <div className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded shadow-lg animate-pulse z-10">
+                      DRY HOP
+                    </div>
+                  )}
                   <div className="font-black text-lg text-white mb-1">{tank.name}</div>
                   <div className="text-[10px] text-text-muted mb-3">{tank.capacity}L Capacity</div>
-                  
+
                   {tank.status === 'Empty' ? (
                     <div className="mt-auto w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-brand-amber group-hover:text-black transition-colors">
                       <Plus className="w-6 h-6" />
                     </div>
                   ) : (
-                    <div className="mt-auto w-full relative group/tank">
-                      <button 
-                        onClick={(e) => handleCancelBrew(e, tank.id)}
-                        className="absolute -top-12 -left-2 p-1.5 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-md opacity-0 group-hover/tank:opacity-100 transition-all z-10"
-                        title="Cancel Brew"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-
-                      {tank.status === 'Brewing' && (
-                        <button 
-                          onClick={(e) => handleColdCrash(e, tank.id)}
-                          className="absolute -top-12 -right-2 p-1.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded-md opacity-0 group-hover/tank:opacity-100 transition-all z-10 flex items-center gap-1 font-bold text-[10px] tracking-wider"
-                          title="Cold Crash"
-                        >
-                          <Snowflake className="w-4 h-4" /> CC
-                        </button>
-                      )}
-
-                      {tank.status === 'ColdCrash' && (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setPackagingTankId(tank.id); }}
-                          className="absolute -top-12 -right-2 p-1.5 bg-brand-green/20 text-brand-green hover:bg-brand-green hover:text-white rounded-md opacity-0 group-hover/tank:opacity-100 transition-all z-10 flex items-center gap-1 font-bold text-[10px] tracking-wider"
-                          title="Package to Keg"
-                        >
-                          <Archive className="w-4 h-4" /> KEG
-                        </button>
-                      )}
+                    <div className="mt-auto w-full flex flex-col gap-1 group/tank">
                       
+                      {/* Action Buttons - Reserved space */}
+                      <div className="flex justify-between items-center w-full min-h-[28px] opacity-0 group-hover/tank:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleCancelBrew(e, tank.id)}
+                          className="p-1.5 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-md transition-all"
+                          title="Cancel Brew"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+
+                        {tank.status === 'ColdCrash' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPackagingTankId(tank.id); }}
+                            className="p-1.5 px-2 bg-brand-green/20 text-brand-green hover:bg-brand-green hover:text-white rounded-md transition-all flex items-center gap-1 font-bold text-[10px] tracking-wider"
+                            title="Package to Keg"
+                          >
+                            <Archive className="w-3 h-3" /> KEG
+                          </button>
+                        )}
+                      </div>
+
                       <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${tank.status === 'ColdCrash' ? 'text-blue-400' : 'text-brand-amber'}`}>
                         {tank.status === 'ColdCrash' ? 'Cold Crash' : 'Brewing'}
                       </div>
                       <div className="text-sm font-bold text-white truncate px-1 mb-1" title={getRecipeName(tank.currentRecipeId)}>{getRecipeName(tank.currentRecipeId)}</div>
-                      
-                      <div className="flex justify-between items-center text-xs mt-2 bg-black/20 p-1.5 rounded border border-white/5">
+
+                      <div className="flex justify-between items-center text-xs mt-2 bg-black/20 p-1.5 rounded border border-white/5" onClick={(e) => e.stopPropagation()}>
                         <span className="text-text-muted">{tank.startDate || 'Unknown'}</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-text-muted">OG:</span>
-                          <input 
-                            type="number" 
-                            step="0.001" 
-                            value={tank.currentOg || ''} 
-                            onChange={(e) => handleOgChange(e, tank.id)}
-                            className={`w-14 bg-transparent border-b text-white text-center focus:outline-none ${tank.status === 'ColdCrash' ? 'border-blue-500/30 focus:border-blue-400' : 'border-white/20 focus:border-brand-amber'}`}
-                          />
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <span className="text-text-muted">OG:</span>
+                            <input
+                              type="number"
+                              step="0.001"
+                              defaultValue={tank.currentOg || ''}
+                              onBlur={(e) => handleOgChange(e, tank.id)}
+                              className={`w-14 bg-transparent border-b text-white text-center focus:outline-none ${tank.status === 'ColdCrash' ? 'border-blue-500/30 focus:border-blue-400' : 'border-white/20 focus:border-brand-amber'}`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                            <span className="text-text-muted">pH:</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              defaultValue={tank.currentPh || ''}
+                              onBlur={(e) => handlePhChange(e, tank.id)}
+                              className={`w-10 bg-transparent border-b text-white text-center focus:outline-none ${tank.status === 'ColdCrash' ? 'border-blue-500/30 focus:border-blue-400' : 'border-white/20 focus:border-brand-amber'}`}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         ))}
@@ -288,12 +326,12 @@ export default function Dashboard() {
 
       {/* Analytics Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-        
+
         {/* Pie Chart: Recipe Distribution */}
         <div className="bg-bg-panel border border-white/5 rounded-2xl shadow-lg p-6">
           <h2 className="text-xl font-bold text-white mb-2">{t('Monthly Brews Summary')}</h2>
           <p className="text-sm text-text-muted mb-6">{t('Distribution of recipes brewed in the selected period.')}</p>
-          
+
           <div className="h-64">
             {pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -312,7 +350,7 @@ export default function Dashboard() {
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <RechartsTooltip 
+                  <RechartsTooltip
                     contentStyle={{ backgroundColor: '#1A1C23', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
                     itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                   />
@@ -325,7 +363,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          
+
           {mostBrewed && (
             <div className="mt-4 p-4 bg-brand-amber/10 border border-brand-amber/20 rounded-xl flex justify-between items-center">
               <div>
@@ -341,30 +379,30 @@ export default function Dashboard() {
         <div className="bg-bg-panel border border-white/5 rounded-2xl shadow-lg p-6">
           <h2 className="text-xl font-bold text-white mb-2">{t('Gravity Accuracy (Target vs Actual OG)')}</h2>
           <p className="text-sm text-text-muted mb-6">{t('Comparing recipe target original gravity against actual reading.')}</p>
-          
+
           <div className="h-64 mt-4">
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="rgba(255,255,255,0.3)" 
-                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} 
+                  <XAxis
+                    dataKey="name"
+                    stroke="rgba(255,255,255,0.3)"
+                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                     dy={10}
                   />
-                  <YAxis 
-                    domain={['dataMin - 0.010', 'dataMax + 0.010']} 
+                  <YAxis
+                    domain={['dataMin - 0.010', 'dataMax + 0.010']}
                     tickFormatter={(val) => val.toFixed(3)}
-                    stroke="rgba(255,255,255,0.3)" 
+                    stroke="rgba(255,255,255,0.3)"
                     tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                     dx={-10}
                   />
-                  <RechartsTooltip 
+                  <RechartsTooltip
                     contentStyle={{ backgroundColor: '#1A1C23', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
                     labelStyle={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}
                     formatter={(value: any) => typeof value === 'number' ? value.toFixed(3) : value}
@@ -387,16 +425,23 @@ export default function Dashboard() {
 
       {/* Modals */}
       {selectedEmptyTankId && (
-        <TankSelectionModal 
-          tankId={selectedEmptyTankId} 
-          onClose={() => setSelectedEmptyTankId(null)} 
+        <TankSelectionModal
+          tankId={selectedEmptyTankId}
+          onClose={() => setSelectedEmptyTankId(null)}
         />
       )}
 
       {packagingTankId && (
-        <KeggingModal 
+        <KeggingModal
           tankId={packagingTankId}
           onClose={() => setPackagingTankId(null)}
+        />
+      )}
+
+      {detailsTankId && (
+        <ActiveTankModal
+          tankId={detailsTankId}
+          onClose={() => setDetailsTankId(null)}
         />
       )}
     </div>

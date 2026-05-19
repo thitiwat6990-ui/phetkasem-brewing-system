@@ -27,10 +27,11 @@ export default function RecipesPage() {
       ibu: 30,
       ingredients: [],
       vitals: { originalGravity: 1.050, finalGravity: 1.010, colorEBC: 10, buGuRatio: 0.5 },
-      process: { equipment: 'BrewZilla 65L', efficiency: 80, batchVolume: 120, boilTime: 60, mashWater: 40, spargeWater: 100 },
+      process: { equipment: 'BrewZilla 65L', efficiency: 80, batchVolume: 120, boilTime: 60, mashWater: 40, spargeWater: 100, dryHopDay: 10 },
       mashSteps: [],
       malts: [],
-      hops: []
+      hops: [],
+      yeasts: []
     });
   };
 

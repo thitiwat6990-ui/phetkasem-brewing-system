@@ -1,7 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Tank, InventoryItem, Recipe, LogEntry, Batch, KegBatch, KegReservation, MOCK_TANKS, MOCK_INVENTORY, MOCK_RECIPES, MOCK_SUPPLIERS, MOCK_BATCHES, MOCK_KEG_BATCHES } from './mockData';
+import { getInitialState, saveRecipe, removeRecipe, saveInventoryItem, removeInventoryItem, saveTank, saveBatch, removeBatch, saveKegBatch, saveLog } from '@/actions/data';
+import { sendLineNotification } from '@/actions/line';
 
 type BrewContextType = {
   tanks: Tank[];
@@ -15,8 +17,10 @@ type BrewContextType = {
   startBrew: (tankId: string, recipeId: string) => { success: boolean; message: string };
   cancelBrew: (tankId: string) => { success: boolean; message: string };
   updateTankOg: (tankId: string, og: number) => void;
+  updateTankPh: (tankId: string, ph: number) => void;
+  toggleDryHop: (tankId: string, completed: boolean) => void;
   coldCrashTank: (tankId: string) => { success: boolean; message: string };
-  packageKegs: (tankId: string, totalKegs: number, litersPerKeg: number, pricePerKeg: number, shippingCost: number) => { success: boolean; message: string };
+  packageKegs: (tankId: string, totalKegs: number, litersPerKeg: number, pricePerKeg: number, shippingCost: number, fg: number) => { success: boolean; message: string };
   addKegReservation: (kegBatchId: string, customerName: string, shopName: string, quantity: number) => { success: boolean; message: string };
 
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
@@ -43,6 +47,40 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [batches, setBatches] = useState<Batch[]>(MOCK_BATCHES);
   const [kegBatches, setKegBatches] = useState<KegBatch[]>(MOCK_KEG_BATCHES);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadData() {
+      const result = await getInitialState();
+      if (result.success && result.data) {
+        
+        // Merge Tanks (Hardware should always exist)
+        if (result.data.tanks.length > 0) {
+          setTanks(MOCK_TANKS.map(mt => result.data.tanks.find(dt => dt.id === mt.id) || mt));
+        }
+
+        // Merge Inventory (Keep mock data as baseline, override with DB updates, add new DB items)
+        if (result.data.inventory.length > 0) {
+          const mergedInv = MOCK_INVENTORY.map(mi => result.data.inventory.find(di => di.id === mi.id) || mi);
+          const newInv = result.data.inventory.filter(di => !MOCK_INVENTORY.some(mi => mi.id === di.id));
+          setInventory([...mergedInv, ...newInv]);
+        }
+
+        // Merge Recipes
+        if (result.data.recipes.length > 0) {
+          const mergedRec = MOCK_RECIPES.map(mr => result.data.recipes.find(dr => dr.id === mr.id) || mr);
+          const newRec = result.data.recipes.filter(dr => !MOCK_RECIPES.some(mr => mr.id === dr.id));
+          setRecipes([...mergedRec, ...newRec]);
+        }
+
+        if (result.data.batches.length > 0) setBatches(result.data.batches);
+        if (result.data.kegBatches.length > 0) setKegBatches(result.data.kegBatches);
+        if (result.data.logs && result.data.logs.length > 0) setLogs(result.data.logs);
+      }
+      setIsLoaded(true);
+    }
+    loadData();
+  }, []);
 
   const addLog = (action: string, details: string) => {
     const newLog: LogEntry = {
@@ -53,6 +91,7 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       details
     };
     setLogs(prev => [newLog, ...prev]);
+    saveLog(newLog); // Persist to database
   };
 
   const startBrew = (tankId: string, recipeId: string) => {
@@ -62,14 +101,20 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     const tank = tanks.find(t => t.id === tankId);
     if (!tank || tank.status !== 'Empty') return { success: false, message: 'Tank is not available.' };
 
+    // Combine all required ingredients
+    const requiredIngredients: { name: string; quantity: number }[] = [];
+    recipe.malts?.forEach(m => requiredIngredients.push({ name: m.name, quantity: m.weight }));
+    recipe.hops?.forEach(h => requiredIngredients.push({ name: h.name, quantity: h.weight }));
+    recipe.yeasts?.forEach(y => requiredIngredients.push({ name: y.name, quantity: y.weight }));
+
     // Check inventory
     const missingItems: string[] = [];
-    for (const ing of recipe.ingredients) {
-      const invItem = inventory.find(i => i.id === ing.itemId);
+    for (const req of requiredIngredients) {
+      const invItem = inventory.find(i => i.name.toLowerCase().trim() === req.name.toLowerCase().trim());
       if (!invItem) {
-        missingItems.push(`Unknown ingredient (ID: ${ing.itemId})`);
-      } else if (invItem.quantity < ing.quantity) {
-        missingItems.push(`Missing ${ing.quantity - invItem.quantity} ${invItem.unit} of ${invItem.name}`);
+        missingItems.push(`Unknown ingredient in warehouse: ${req.name}`);
+      } else if (invItem.quantity < req.quantity) {
+        missingItems.push(`Missing ${req.quantity - invItem.quantity} ${invItem.unit} of ${invItem.name}`);
       }
     }
 
@@ -77,19 +122,22 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: `Insufficient inventory:\n${missingItems.join('\n')}` };
     }
 
-    // Deduct inventory
-    setInventory(prev => prev.map(item => {
-      const recipeIng = recipe.ingredients.find(i => i.itemId === item.id);
-      if (recipeIng) {
-        const newQty = item.quantity - recipeIng.quantity;
-        return {
+    // Calculate new inventory
+    const updatedInventoryItems: InventoryItem[] = [];
+    const newInventory = inventory.map(item => {
+      const req = requiredIngredients.find(r => r.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+      if (req) {
+        const newQty = item.quantity - req.quantity;
+        const u = {
           ...item,
           quantity: newQty,
-          status: newQty === 0 ? 'Out of Stock' : newQty < 10 ? 'Low' : 'In Stock'
+          status: newQty === 0 ? 'Out of Stock' as any : newQty < 10 ? 'Low' as any : 'In Stock' as any
         };
+        updatedInventoryItems.push(u);
+        return u;
       }
       return item;
-    }));
+    });
 
     // Create Batch
     const newBatch: Batch = {
@@ -99,24 +147,38 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       stage: 'Preparation',
       startDate: new Date().toISOString().split('T')[0]
     };
-    setBatches(prev => [...prev, newBatch]);
 
-    // Update tank
-    setTanks(prev => prev.map(t => {
+    // Calculate new tank
+    let updatedTank: Tank | null = null;
+    const newTanks = tanks.map(t => {
       if (t.id === tankId) {
-        return {
+        updatedTank = {
           ...t,
-          status: 'Brewing',
+          status: 'Brewing' as any,
           currentRecipeId: recipeId,
           currentBatchId: newBatch.id,
           startDate: new Date().toISOString().split('T')[0],
           currentOg: recipe.vitals?.originalGravity || 1.050
         };
+        return updatedTank;
       }
       return t;
-    }));
+    });
+
+    // Perform state updates
+    setInventory(newInventory);
+    setBatches([...batches, newBatch]);
+    setTanks(newTanks);
+
+    // Perform side effects
+    updatedInventoryItems.forEach(u => saveInventoryItem(u));
+    if (updatedTank) saveTank(updatedTank);
+    saveBatch(newBatch);
+    
+    saveBatch(newBatch);
 
     addLog('STARTED_BREW', `Started brewing ${recipe.name} in tank ${tank.name}`);
+    sendLineNotification(`Started brewing ${recipe.name} in tank ${tank.name}`);
     return { success: true, message: 'Brew started successfully!' };
   };
 
@@ -129,56 +191,78 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
     const recipe = recipes.find(r => r.id === tank.currentRecipeId);
 
     // Refund inventory if recipe is found
+    const updatedInventoryItems: InventoryItem[] = [];
     if (recipe) {
-      setInventory(prev => prev.map(item => {
-        const recipeIng = recipe.ingredients.find(i => i.itemId === item.id);
-        if (recipeIng) {
-          const newQty = item.quantity + recipeIng.quantity;
-          return {
+      const requiredIngredients: { name: string; quantity: number }[] = [];
+      recipe.malts?.forEach(m => requiredIngredients.push({ name: m.name, quantity: m.weight }));
+      recipe.hops?.forEach(h => requiredIngredients.push({ name: h.name, quantity: h.weight }));
+      recipe.yeasts?.forEach(y => requiredIngredients.push({ name: y.name, quantity: y.weight }));
+
+      const newInventory = inventory.map(item => {
+        const req = requiredIngredients.find(r => r.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+        if (req) {
+          const newQty = item.quantity + req.quantity;
+          const u = {
             ...item,
             quantity: newQty,
-            status: newQty === 0 ? 'Out of Stock' : newQty < 10 ? 'Low' : 'In Stock'
+            status: newQty === 0 ? 'Out of Stock' as any : newQty < 10 ? 'Low' as any : 'In Stock' as any
           };
+          updatedInventoryItems.push(u);
+          return u;
         }
         return item;
-      }));
+      });
+      setInventory(newInventory);
     }
 
     // Remove batch
     if (tank.currentBatchId) {
-      setBatches(prev => prev.filter(b => b.id !== tank.currentBatchId));
+      setBatches(batches.filter(b => b.id !== tank.currentBatchId));
+      removeBatch(tank.currentBatchId);
     }
 
     // Reset tank
-    setTanks(prev => prev.map(t => {
+    let resetTank: Tank | null = null;
+    const newTanks = tanks.map(t => {
       if (t.id === tankId) {
-        return {
+        resetTank = {
           ...t,
-          status: 'Empty',
+          status: 'Empty' as any,
           currentRecipeId: undefined,
           currentBatchId: undefined,
           startDate: undefined,
           currentOg: undefined
         };
+        return resetTank;
       }
       return t;
-    }));
+    });
+    setTanks(newTanks);
+
+    // Perform side effects
+    updatedInventoryItems.forEach(u => saveInventoryItem(u));
+    if (resetTank) saveTank(resetTank);
 
     addLog('CANCELLED_BREW', `Cancelled brew in tank ${tank.name} and refunded ingredients.`);
     return { success: true, message: 'Brew cancelled successfully.' };
   };
 
   const updateTankOg = (tankId: string, og: number) => {
-    setTanks(prev => prev.map(t => {
-      if (t.id === tankId) {
-        return { ...t, currentOg: og };
-      }
-      return t;
-    }));
-    const tank = tanks.find(t => t.id === tankId);
-    if (tank) {
-      addLog('UPDATED_OG', `Updated OG to ${og.toFixed(3)} for tank ${tank.name}`);
-    }
+    setTanks(tanks.map(t => t.id === tankId ? { ...t, currentOg: og } : t));
+    const t = tanks.find(t => t.id === tankId);
+    if(t) saveTank({ ...t, currentOg: og });
+  };
+
+  const updateTankPh = (tankId: string, ph: number) => {
+    setTanks(tanks.map(t => t.id === tankId ? { ...t, currentPh: ph } : t));
+    const t = tanks.find(t => t.id === tankId);
+    if(t) saveTank({ ...t, currentPh: ph });
+  };
+
+  const toggleDryHop = (tankId: string, completed: boolean) => {
+    setTanks(tanks.map(t => t.id === tankId ? { ...t, dryHopCompleted: completed } : t));
+    const t = tanks.find(t => t.id === tankId);
+    if(t) saveTank({ ...t, dryHopCompleted: completed });
   };
 
   const coldCrashTank = (tankId: string) => {
@@ -187,20 +271,37 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Tank must be in Brewing state to cold crash.' };
     }
 
-    setTanks(prev => prev.map(t => {
-      if (t.id === tankId) return { ...t, status: 'ColdCrash' };
+    let updatedTank: Tank | null = null;
+    const newTanks = tanks.map(t => {
+      if (t.id === tankId) {
+        updatedTank = { ...t, status: 'ColdCrash' as any, coldCrashStartDate: new Date().toISOString().split('T')[0] };
+        return updatedTank;
+      }
       return t;
-    }));
+    });
+    setTanks(newTanks);
 
+    let updatedBatch: Batch | null = null;
     if (tank.currentBatchId) {
-      setBatches(prev => prev.map(b => b.id === tank.currentBatchId ? { ...b, stage: 'Conditioning' } : b));
+      const newBatches = batches.map(b => {
+        if (b.id === tank.currentBatchId) {
+          updatedBatch = { ...b, stage: 'Conditioning' as any };
+          return updatedBatch;
+        }
+        return b;
+      });
+      setBatches(newBatches);
     }
 
+    if (updatedTank) saveTank(updatedTank);
+    if (updatedBatch) saveBatch(updatedBatch);
+
     addLog('COLD_CRASH', `Started cold crash for tank ${tank.name}`);
+    sendLineNotification(`Initiated cold crash for tank ${tank.name}`);
     return { success: true, message: 'Cold crash initiated.' };
   };
 
-  const packageKegs = (tankId: string, totalKegs: number, litersPerKeg: number, pricePerKeg: number, shippingCost: number) => {
+  const packageKegs = (tankId: string, totalKegs: number, litersPerKeg: number, pricePerKeg: number, shippingCost: number, fg: number) => {
     const tank = tanks.find(t => t.id === tankId);
     if (!tank || tank.status !== 'ColdCrash' || !tank.currentBatchId || !tank.currentRecipeId) {
       return { success: false, message: 'Tank must be in Cold Crash state to package kegs.' };
@@ -223,27 +324,43 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       reservations: []
     };
 
-    setKegBatches(prev => [newKegBatch, ...prev]);
+    setKegBatches([newKegBatch, ...kegBatches]);
+    saveKegBatch(newKegBatch);
 
     // Complete batch
-    setBatches(prev => prev.map(b => b.id === batch.id ? { ...b, stage: 'Packaged', specificGravity: tank.currentOg } : b));
+    let updatedBatch: Batch | null = null;
+    const newBatches = batches.map(b => {
+      if(b.id === batch.id) {
+        updatedBatch = { ...b, stage: 'Packaged' as any, specificGravity: fg };
+        return updatedBatch;
+      }
+      return b;
+    });
+    setBatches(newBatches);
 
     // Empty tank
-    setTanks(prev => prev.map(t => {
+    let updatedTank: Tank | null = null;
+    const newTanks = tanks.map(t => {
       if (t.id === tankId) {
-        return {
+        updatedTank = {
           ...t,
-          status: 'Empty',
+          status: 'Empty' as any,
           currentRecipeId: undefined,
           currentBatchId: undefined,
           startDate: undefined,
           currentOg: undefined
         };
+        return updatedTank;
       }
       return t;
-    }));
+    });
+    setTanks(newTanks);
+
+    if (updatedBatch) saveBatch(updatedBatch);
+    if (updatedTank) saveTank(updatedTank);
 
     addLog('PACKAGED_KEGS', `Packaged ${totalKegs} kegs (${litersPerKeg}L each) from tank ${tank.name}`);
+    sendLineNotification(`Packaged ${totalKegs} kegs (${litersPerKeg}L each) from tank ${tank.name}`);
     return { success: true, message: 'Successfully packaged kegs and emptied tank.' };
   };
 
@@ -266,16 +383,20 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       status: 'Pending Payment' // <--- เพิ่มบรรทัดนี้เข้าไปเพื่อให้ตรงตาม Type KegReservation
     };
 
-    setKegBatches(prev => prev.map(kb => {
+    let updatedKegBatch: KegBatch | null = null;
+    const newKegBatches = kegBatches.map(kb => {
       if (kb.id === kegBatchId) {
-        return {
+        updatedKegBatch = {
           ...kb,
           availableKegs: kb.availableKegs - quantity,
           reservations: [...kb.reservations, reservation]
         };
+        return updatedKegBatch;
       }
       return kb;
-    }));
+    });
+    setKegBatches(newKegBatches);
+    if (updatedKegBatch) saveKegBatch(updatedKegBatch);
 
     addLog('KEG_RESERVATION', `Reserved ${quantity} kegs of ${kegBatch.batchNumber} for ${customerName} (${shopName})`);
     return { success: true, message: 'Reservation added successfully.' };
@@ -287,19 +408,28 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       id: `inv-${Date.now()}` // simple random id
     };
     setInventory(prev => [...prev, newItem]);
+    saveInventoryItem(newItem);
     addLog('ADDED_INVENTORY', `Added ${item.quantity} ${item.unit} of ${item.name}`);
   };
 
   const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
-    setInventory(prev => prev.map(item =>
-      item.id === id ? { ...item, ...updates } : item
-    ));
+    let updatedItem: InventoryItem | null = null;
+    const newInventory = inventory.map(item => {
+      if(item.id === id) {
+        updatedItem = { ...item, ...updates };
+        return updatedItem;
+      }
+      return item;
+    });
+    setInventory(newInventory);
+    if (updatedItem) saveInventoryItem(updatedItem);
     addLog('UPDATED_INVENTORY', `Updated item ID: ${id}`);
   };
 
   const deleteInventoryItem = (id: string) => {
     const item = inventory.find(i => i.id === id);
     setInventory(prev => prev.filter(item => item.id !== id));
+    removeInventoryItem(id);
     addLog('DELETED_INVENTORY', `Deleted inventory item: ${item?.name || id}`);
   };
 
@@ -321,19 +451,28 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       id: `rec-${Date.now()}`
     };
     setRecipes(prev => [...prev, newRecipe]);
+    saveRecipe(newRecipe);
     addLog('ADDED_RECIPE', `Created new recipe: ${recipe.name}`);
   };
 
   const updateRecipe = (id: string, updates: Partial<Recipe>) => {
-    setRecipes(prev => prev.map(recipe =>
-      recipe.id === id ? { ...recipe, ...updates } : recipe
-    ));
+    let updatedRecipe: Recipe | null = null;
+    const newRecipes = recipes.map(recipe => {
+      if(recipe.id === id) {
+        updatedRecipe = { ...recipe, ...updates };
+        return updatedRecipe;
+      }
+      return recipe;
+    });
+    setRecipes(newRecipes);
+    if (updatedRecipe) saveRecipe(updatedRecipe);
     addLog('UPDATED_RECIPE', `Updated recipe ID: ${id}`);
   };
 
   const deleteRecipe = (id: string) => {
     const recipe = recipes.find(r => r.id === id);
     setRecipes(prev => prev.filter(r => r.id !== id));
+    removeRecipe(id);
     addLog('DELETED_RECIPE', `Deleted recipe: ${recipe?.name || id}`);
   };
 
@@ -349,6 +488,8 @@ export function BrewProvider({ children }: { children: React.ReactNode }) {
       startBrew,
       cancelBrew,
       updateTankOg,
+      updateTankPh,
+      toggleDryHop,
       coldCrashTank,
       packageKegs,
       addKegReservation,

@@ -38,7 +38,7 @@ export default function KegStockPage() {
     }, 0);
   }, [kegBatches]);
 
-  const activeKegBatchesCount = kegBatches.filter(kb => kb.availableKegs > 0).length;
+  const totalAvailableKegs = kegBatches.reduce((total, batch) => total + batch.availableKegs, 0);
 
   const salesByRecipeData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -59,22 +59,18 @@ export default function KegStockPage() {
 
   const CHART_COLORS = ['#10B981', '#3B82F6', '#FFBF00', '#F97316', '#8B5CF6'];
 
-  // 2. ฟิลเตอร์ Style สำหรับ Current Keg Stock
-  const uniqueStyles = useMemo(() => {
-    const styles = new Set<string>();
-    kegBatches.forEach(kb => {
-      const style = getRecipe(kb.recipeId)?.style || 'Uncategorized';
-      styles.add(style);
-    });
-    return ['All', ...Array.from(styles)];
-  }, [kegBatches, recipes]);
+  const filterStyles = ['All', 'Hazy', 'AIPA', 'Lager', 'Stout', 'Sour', 'Mead', 'Fruit', 'Wheat'];
 
   const filteredKegBatches = useMemo(() => {
-    if (selectedStyle === 'All') return kegBatches;
-    return kegBatches.filter(kb => {
-      const style = getRecipe(kb.recipeId)?.style || 'Uncategorized';
-      return style === selectedStyle;
-    });
+    let filtered = kegBatches.filter(kb => kb.availableKegs > 0);
+    if (selectedStyle !== 'All') {
+      filtered = filtered.filter(kb => {
+        const style = getRecipe(kb.recipeId)?.style || 'Uncategorized';
+        // Allow partial matches since custom styles might be like 'Hazy IPA'
+        return style.toLowerCase().includes(selectedStyle.toLowerCase());
+      });
+    }
+    return filtered;
   }, [kegBatches, recipes, selectedStyle]);
 
   // 3. รวบรวมข้อมูล Reservations ทั้งหมดเพื่อนำมาทำ Order Tracking และ Customer Summary
@@ -174,8 +170,8 @@ export default function KegStockPage() {
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-brand-amber/10 rounded-full group-hover:scale-110 transition-transform" />
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Active Keg Batches')}</p>
-              <h3 className="text-4xl font-black text-white">{activeKegBatchesCount}</h3>
+              <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">{t('Total Available Kegs')}</p>
+              <h3 className="text-4xl font-black text-white">{totalAvailableKegs}</h3>
             </div>
             <div className="p-3 bg-brand-amber/20 text-brand-amber rounded-xl shrink-0">
               <Archive className="w-6 h-6" />
@@ -230,9 +226,9 @@ export default function KegStockPage() {
               <select
                 value={selectedStyle}
                 onChange={(e) => setSelectedStyle(e.target.value)}
-                className="bg-black/40 border border-white/10 text-white text-sm rounded-lg focus:ring-brand-amber focus:border-brand-amber block w-full p-2"
+                className="bg-black/40 border border-white/10 text-white text-sm rounded-lg focus:ring-brand-amber focus:border-brand-amber block w-full p-2 outline-none"
               >
-                {uniqueStyles.map(style => (
+                {filterStyles.map(style => (
                   <option key={style} value={style}>{style}</option>
                 ))}
               </select>
@@ -254,8 +250,8 @@ export default function KegStockPage() {
                 {filteredKegBatches.map((kb) => (
                   <tr key={kb.id} className={`hover:bg-white/[0.02] transition-colors ${kb.availableKegs === 0 ? 'opacity-50' : ''}`}>
                     <td className="p-4 align-top">
-                      <div className="font-bold text-white">{kb.batchNumber}</div>
-                      <div className="text-sm text-text-muted mt-1">{getRecipeName(kb.recipeId)}</div>
+                      <div className="font-bold text-white text-lg">{getRecipeName(kb.recipeId)}</div>
+                      <div className="text-sm text-text-muted mt-1">Batch: {kb.batchNumber}</div>
                       <div className="text-xs text-brand-amber/70 mt-1">{getRecipe(kb.recipeId)?.style}</div>
                     </td>
                     <td className="p-4 align-top">

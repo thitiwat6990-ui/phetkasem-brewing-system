@@ -143,9 +143,13 @@ async function main() {
     // Seed Admin
     const usersCheck = await sql`SELECT COUNT(*) as count FROM users`;
     if (parseInt(usersCheck.rows[0].count, 10) === 0) {
-      const hash = bcrypt.hashSync('123123', 10);
-      await sql`INSERT INTO users (username, password_hash, first_name, last_name, phone, email, role) VALUES ('Sunny', ${hash}, 'Sunny', 'Admin', '-', 'admin@example.com', 'Master brewer')`;
-      console.log('Admin user seeded.');
+      const hash1 = bcrypt.hashSync('123123', 10);
+      await sql`INSERT INTO users (username, password_hash, first_name, last_name, phone, email, role) VALUES ('Sunny', ${hash1}, 'Sunny', 'Admin', '-', 'admin@example.com', 'Master brewer')`;
+      
+      const hash2 = bcrypt.hashSync('Sunkc53h1', 10);
+      await sql`INSERT INTO users (username, password_hash, first_name, last_name, phone, email, role) VALUES ('Thitiwat', ${hash2}, 'Thitiwat', 'Admin', '-', 'thitiwat.6990@gmail.com', 'Master brewer')`;
+      
+      console.log('Admin users seeded.');
     }
 
     console.log('Migration and seeding completed successfully!');

@@ -3,9 +3,10 @@
 @theme {
   --color-brand-amber: #FFBF00;
   --color-brand-amber-dark: #cc9900;
-  --color-brand-green: #4b6b3e; /* earthy green */
+  --color-brand-green: #4b6b3e;
+  /* earthy green */
   --color-brand-green-light: #648a54;
-  
+
   --color-bg-dark: #0f1115;
   --color-bg-panel: #1a1d24;
   --color-bg-panel-hover: #232730;

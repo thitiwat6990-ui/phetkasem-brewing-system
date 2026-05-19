@@ -1,11 +1,12 @@
 "use client";
 
-import { MOCK_BATCHES, MOCK_RECIPES, MOCK_TANKS } from '@/lib/mockData';
+import { useBrew } from '@/lib/BrewContext';
 import { KanbanSquare, Calendar } from 'lucide-react';
 import { useLanguage } from '@/lib/i18nContext';
 
 export default function BatchTrackerPage() {
   const { t } = useLanguage();
+  const { batches, recipes, tanks } = useBrew();
 
   return (
     <div className="p-8 font-sans max-w-7xl mx-auto h-full flex flex-col">
@@ -27,14 +28,15 @@ export default function BatchTrackerPage() {
                 <th className="p-4">{t('Recipe Name')}</th>
                 <th className="p-4">{t('Style')}</th>
                 <th className="p-4 text-center">{t('OG')}</th>
+                <th className="p-4 text-center">{t('pH')}</th>
                 <th className="p-4 text-center">{t('FG')}</th>
                 <th className="p-4 text-right">{t('Tank')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {MOCK_BATCHES.map(batch => {
-                const recipe = MOCK_RECIPES.find(r => r.id === batch.recipeId);
-                const tank = MOCK_TANKS.find(t => t.currentBatchId === batch.id) || { name: 'N/A' };
+              {batches.map(batch => {
+                const recipe = recipes.find(r => r.id === batch.recipeId);
+                const tank = tanks.find(t => t.currentBatchId === batch.id) || { name: 'N/A', currentOg: undefined };
                 
                 return (
                   <tr key={batch.id} className="hover:bg-white/[0.02] transition-colors">
@@ -54,7 +56,10 @@ export default function BatchTrackerPage() {
                       <span className="text-sm text-text-secondary uppercase tracking-wider">{recipe?.style || '-'}</span>
                     </td>
                     <td className="p-4 text-center">
-                      <span className="text-sm font-mono text-white">{recipe?.vitals?.originalGravity?.toFixed(3) || '-'}</span>
+                      <span className="text-sm font-mono text-white">{(tank as any).currentOg?.toFixed(3) || recipe?.vitals?.originalGravity?.toFixed(3) || '-'}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className="text-sm font-mono text-white">{(tank as any).currentPh?.toFixed(2) || '-'}</span>
                     </td>
                     <td className="p-4 text-center">
                       <span className="text-sm font-mono text-brand-amber">{batch.specificGravity?.toFixed(3) || recipe?.vitals?.finalGravity?.toFixed(3) || '-'}</span>
@@ -67,7 +72,7 @@ export default function BatchTrackerPage() {
                   </tr>
                 );
               })}
-              {MOCK_BATCHES.length === 0 && (
+              {batches.length === 0 && (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-text-muted italic">
                     {t('No batches found')}

@@ -29,6 +29,12 @@ export type RecipeHop = {
   ibu: number;
 };
 
+export type RecipeYeast = {
+  name: string;
+  weight: number; // grams or pkgs
+  attenuation: number; // %
+};
+
 export type RecipeMashStep = {
   stepName: string;
   temperature: number; // Celsius
@@ -50,6 +56,7 @@ export type RecipeProcess = {
   mashWater: number; // L
   spargeWater: number; // L
   preBoilGravity?: number;
+  dryHopDay?: number; // Target day of fermentation to add dry hops
 };
 
 export type Recipe = {
@@ -67,6 +74,7 @@ export type Recipe = {
   mashSteps?: RecipeMashStep[];
   malts?: RecipeMalt[];
   hops?: RecipeHop[];
+  yeasts?: RecipeYeast[];
 };
 
 export type BatchStage = 'Preparation' | 'Mashing' | 'Boiling' | 'Fermentation' | 'Conditioning' | 'Packaged';
@@ -94,6 +102,9 @@ export type Tank = {
   currentBatchId?: string;
   startDate?: string;
   currentOg?: number;
+  currentPh?: number;
+  dryHopCompleted?: boolean;
+  coldCrashStartDate?: string;
 };
 
 export type KegReservationStatus = 'Pending Payment' | 'Paid' | 'Pending Delivery' | 'Delivered';

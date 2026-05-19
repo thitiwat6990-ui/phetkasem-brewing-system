@@ -11,21 +11,25 @@ export default function KeggingModal({ tankId, onClose }: { tankId: string, onCl
   const recipe = recipes.find(r => r.id === tank?.currentRecipeId);
   const batch = batches.find(b => b.id === tank?.currentBatchId);
 
-  const [totalKegs, setTotalKegs] = useState<number>(4);
-  const [litersPerKeg, setLitersPerKeg] = useState<number>(30);
-  const [pricePerKeg, setPricePerKeg] = useState<number>(2500);
-  const [shippingCost, setShippingCost] = useState<number>(200);
+  const [totalKegs, setTotalKegs] = useState<number | ''>('');
+  const [litersPerKeg, setLitersPerKeg] = useState<number | ''>('');
+  const [pricePerKeg, setPricePerKeg] = useState<number | ''>('');
+  const [shippingCost, setShippingCost] = useState<number | ''>('');
+  const [fg, setFg] = useState<number | ''>('');
 
   if (!tank || !recipe || !batch) return null;
 
+  const og = tank.currentOg || recipe.vitals?.originalGravity || 1.050;
+  const abv = typeof fg === 'number' && fg > 0 ? (og - fg) * 131.25 : 0;
+
   const handlePackage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (totalKegs <= 0 || litersPerKeg <= 0 || pricePerKeg < 0 || shippingCost < 0) {
+    if (totalKegs === '' || litersPerKeg === '' || pricePerKeg === '' || shippingCost === '' || fg === '') {
       alert("Please enter valid positive numbers for all fields.");
       return;
     }
 
-    const res = packageKegs(tankId, totalKegs, litersPerKeg, pricePerKeg, shippingCost);
+    const res = packageKegs(tankId, totalKegs as number, litersPerKeg as number, pricePerKeg as number, shippingCost as number, fg as number);
     if (res.success) {
       onClose();
     } else {
@@ -86,7 +90,7 @@ export default function KeggingModal({ tankId, onClose }: { tankId: string, onCl
                     required 
                     min="1"
                     value={totalKegs}
-                    onChange={(e) => setTotalKegs(parseInt(e.target.value) || 0)}
+                    onChange={(e) => setTotalKegs(e.target.value === '' ? '' : parseInt(e.target.value))}
                     className="w-full pl-4 pr-10 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-white"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-text-muted">kegs</div>
@@ -101,7 +105,7 @@ export default function KeggingModal({ tankId, onClose }: { tankId: string, onCl
                     required 
                     min="1"
                     value={litersPerKeg}
-                    onChange={(e) => setLitersPerKeg(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setLitersPerKeg(e.target.value === '' ? '' : parseFloat(e.target.value))}
                     className="w-full pl-4 pr-10 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-white"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-text-muted">L</div>
@@ -119,7 +123,7 @@ export default function KeggingModal({ tankId, onClose }: { tankId: string, onCl
                     required 
                     min="0"
                     value={pricePerKeg}
-                    onChange={(e) => setPricePerKeg(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setPricePerKeg(e.target.value === '' ? '' : parseFloat(e.target.value))}
                     className="w-full pl-8 pr-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-white"
                   />
                 </div>
@@ -134,16 +138,38 @@ export default function KeggingModal({ tankId, onClose }: { tankId: string, onCl
                     required 
                     min="0"
                     value={shippingCost}
-                    onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setShippingCost(e.target.value === '' ? '' : parseFloat(e.target.value))}
                     className="w-full pl-8 pr-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-white"
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Final Gravity (FG)</label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    required 
+                    step="0.001"
+                    value={fg}
+                    onChange={(e) => setFg(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="w-full pl-4 pr-10 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-white"
+                    placeholder="e.g. 1.010"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-text-muted">SG</div>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-black/20 rounded-xl p-4 flex justify-between items-center border border-white/5">
-              <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Total Packaged Volume:</span>
-              <span className="text-xl font-black text-blue-400">{totalKegs * litersPerKeg} L</span>
+            <div className="bg-black/20 rounded-xl p-4 grid grid-cols-2 gap-4 border border-white/5">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1">Total Packaged Volume:</span>
+                <span className="text-xl font-black text-blue-400">{(totalKegs as number) * (litersPerKeg as number) || 0} L</span>
+              </div>
+              <div className="flex flex-col border-l border-white/10 pl-4">
+                <span className="text-sm font-bold text-text-muted uppercase tracking-wider mb-1">Estimated ABV:</span>
+                <span className="text-xl font-black text-brand-green">{abv.toFixed(2)}%</span>
+              </div>
             </div>
           </form>
         </div>
