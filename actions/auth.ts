@@ -4,7 +4,6 @@ import { sql } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { redirect } from 'next/navigation';
 
 export async function loginAction(prevState: any, formData: FormData) {
   const username = formData.get('username') as string;
