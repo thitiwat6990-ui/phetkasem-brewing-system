@@ -1,11 +1,27 @@
 "use client";
 
-import { useActionState } from 'react';
-import { registerAction } from '@/actions/auth';
+import { useActionState, useState, useEffect } from 'react';
+import { registerAction, checkUsernameAction } from '@/actions/auth';
 import { Beer, AlertCircle } from 'lucide-react';
 
 export default function RegisterPage() {
   const [state, formAction, isPending] = useActionState(registerAction, undefined);
+  const [username, setUsername] = useState('');
+  const [isUsernameTaken, setIsUsernameTaken] = useState(false);
+
+  useEffect(() => {
+    if (!username) {
+      setIsUsernameTaken(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const result = await checkUsernameAction(username);
+      setIsUsernameTaken(!result.available);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [username]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-dark font-sans p-4 relative overflow-hidden">
@@ -78,8 +94,17 @@ export default function RegisterPage() {
                 name="username" 
                 required 
                 autoComplete="off"
-                className="w-full px-4 py-3 rounded-xl border border-white/10 bg-bg-dark focus:bg-black/50 focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber outline-none transition-all font-medium text-white"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className={`w-full px-4 py-3 rounded-xl border bg-bg-dark outline-none transition-all font-medium text-white ${
+                  isUsernameTaken 
+                    ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-500/50' 
+                    : 'border-white/10 focus:bg-black/50 focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber'
+                }`}
               />
+              {isUsernameTaken && (
+                <p className="text-red-500 text-xs font-bold mt-2">Username is already taken</p>
+              )}
             </div>
             
             <div>
@@ -113,7 +138,7 @@ export default function RegisterPage() {
 
             <button 
               type="submit" 
-              disabled={isPending}
+              disabled={isPending || isUsernameTaken}
               className="w-full bg-brand-amber hover:bg-brand-amber-dark text-black font-black py-3.5 px-4 rounded-xl transition-all shadow-[0_0_15px_rgba(255,191,0,0.3)] disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2 uppercase tracking-wide mt-4"
             >
               {isPending ? 'Creating account...' : 'Create Account'}

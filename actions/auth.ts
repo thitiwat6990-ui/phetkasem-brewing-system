@@ -97,4 +97,14 @@ export async function logoutAction() {
   redirect('/login');
 }
 
+export async function checkUsernameAction(username: string) {
+  try {
+    if (!username) return { available: true };
+    const { rowCount } = await sql`SELECT id FROM users WHERE username = ${username}`;
+    return { available: (rowCount ?? 0) === 0 };
+  } catch (error) {
+    console.error("Username check error:", error);
+    return { available: true }; // Fallback to allow form validation to handle it
+  }
+}
 
