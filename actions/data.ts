@@ -2,19 +2,28 @@
 
 import { sql } from '@/lib/db';
 import { Tank, InventoryItem, Recipe, Batch, KegBatch, LogEntry } from '@/lib/mockData';
+import { unstable_cache, revalidateTag } from 'next/cache';
+
+const getCachedRecipesFromDB = unstable_cache(
+  async () => {
+    const recipesRes = await sql`SELECT details FROM recipes WHERE details IS NOT NULL`;
+    return recipesRes.rows.map(r => r.details as Recipe);
+  },
+  ['recipes-list'],
+  { tags: ['recipes'] }
+);
 
 export async function getInitialState() {
   try {
     const tanksRes = await sql`SELECT details FROM tanks WHERE details IS NOT NULL`;
     const inventoryRes = await sql`SELECT details FROM materials WHERE details IS NOT NULL`;
-    const recipesRes = await sql`SELECT details FROM recipes WHERE details IS NOT NULL`;
     const batchesRes = await sql`SELECT details FROM brew_batches WHERE details IS NOT NULL`;
     const kegBatchesRes = await sql`SELECT details FROM keg_batches WHERE details IS NOT NULL`;
     const logsRes = await sql`SELECT id, timestamp, username as user, action, details FROM system_logs ORDER BY timestamp DESC LIMIT 100`;
 
     const tanks = tanksRes.rows.map(r => r.details as Tank);
     const inventory = inventoryRes.rows.map(r => r.details as InventoryItem);
-    const recipes = recipesRes.rows.map(r => r.details as Recipe);
+    const recipes = await getCachedRecipesFromDB();
     const batches = batchesRes.rows.map(r => r.details as Batch);
     const kegBatches = kegBatchesRes.rows.map(r => r.details as KegBatch);
     const logs = logsRes.rows as LogEntry[];
@@ -47,6 +56,7 @@ export async function saveRecipe(recipe: Recipe) {
     } else {
       await sql`INSERT INTO recipes (name, style, og_target, ph_target, details) VALUES (${recipe.name}, ${recipe.style}, ${recipe.vitals?.originalGravity || 0}, 5.2, ${JSON.stringify(recipe)}::jsonb)`;
     }
+    revalidateTag('recipes');
     return { success: true };
   } catch (error: any) {
     console.error("Failed to save recipe:", error);
@@ -57,6 +67,7 @@ export async function saveRecipe(recipe: Recipe) {
 export async function removeRecipe(id: string) {
   try {
     await sql`DELETE FROM recipes WHERE details->>'id' = ${id}`;
+    revalidateTag('recipes');
     return { success: true };
   } catch (error: any) {
     console.error("Failed to delete recipe:", error);

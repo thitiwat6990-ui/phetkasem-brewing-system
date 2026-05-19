@@ -39,48 +39,29 @@ type BrewContextType = {
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
 
-export function BrewProvider({ children }: { children: React.ReactNode }) {
-  const [tanks, setTanks] = useState<Tank[]>(MOCK_TANKS);
-  const [inventory, setInventory] = useState<InventoryItem[]>(MOCK_INVENTORY);
+export function BrewProvider({ children, initialData }: { children: React.ReactNode, initialData?: any }) {
+  // Merge initialData with MOCK data synchronously during mount
+  const initialTanks = initialData?.tanks?.length ? 
+    MOCK_TANKS.map(mt => initialData.tanks.find((dt: Tank) => dt.id === mt.id) || mt) : MOCK_TANKS;
+
+  const initialInventory = initialData?.inventory?.length ? 
+    [...MOCK_INVENTORY.map(mi => initialData.inventory.find((di: InventoryItem) => di.id === mi.id) || mi), 
+     ...initialData.inventory.filter((di: InventoryItem) => !MOCK_INVENTORY.some(mi => mi.id === di.id))] : MOCK_INVENTORY;
+
+  const initialRecipes = initialData?.recipes?.length ? 
+    [...MOCK_RECIPES.map(mr => initialData.recipes.find((dr: Recipe) => dr.id === mr.id) || mr),
+     ...initialData.recipes.filter((dr: Recipe) => !MOCK_RECIPES.some(mr => mr.id === dr.id))] : MOCK_RECIPES;
+
+  const [tanks, setTanks] = useState<Tank[]>(initialTanks);
+  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   const [suppliers, setSuppliers] = useState<string[]>(MOCK_SUPPLIERS);
-  const [recipes, setRecipes] = useState<Recipe[]>(MOCK_RECIPES);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [batches, setBatches] = useState<Batch[]>(MOCK_BATCHES);
-  const [kegBatches, setKegBatches] = useState<KegBatch[]>(MOCK_KEG_BATCHES);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [logs, setLogs] = useState<LogEntry[]>(initialData?.logs || []);
+  const [batches, setBatches] = useState<Batch[]>(initialData?.batches || MOCK_BATCHES);
+  const [kegBatches, setKegBatches] = useState<KegBatch[]>(initialData?.kegBatches || MOCK_KEG_BATCHES);
+  const [isLoaded, setIsLoaded] = useState(true); // Always loaded if using initialData
 
-  useEffect(() => {
-    async function loadData() {
-      const result = await getInitialState();
-      if (result.success && result.data) {
-        
-        // Merge Tanks (Hardware should always exist)
-        if (result.data.tanks.length > 0) {
-          setTanks(MOCK_TANKS.map(mt => result.data.tanks.find(dt => dt.id === mt.id) || mt));
-        }
 
-        // Merge Inventory (Keep mock data as baseline, override with DB updates, add new DB items)
-        if (result.data.inventory.length > 0) {
-          const mergedInv = MOCK_INVENTORY.map(mi => result.data.inventory.find(di => di.id === mi.id) || mi);
-          const newInv = result.data.inventory.filter(di => !MOCK_INVENTORY.some(mi => mi.id === di.id));
-          setInventory([...mergedInv, ...newInv]);
-        }
-
-        // Merge Recipes
-        if (result.data.recipes.length > 0) {
-          const mergedRec = MOCK_RECIPES.map(mr => result.data.recipes.find(dr => dr.id === mr.id) || mr);
-          const newRec = result.data.recipes.filter(dr => !MOCK_RECIPES.some(mr => mr.id === dr.id));
-          setRecipes([...mergedRec, ...newRec]);
-        }
-
-        if (result.data.batches.length > 0) setBatches(result.data.batches);
-        if (result.data.kegBatches.length > 0) setKegBatches(result.data.kegBatches);
-        if (result.data.logs && result.data.logs.length > 0) setLogs(result.data.logs);
-      }
-      setIsLoaded(true);
-    }
-    loadData();
-  }, []);
 
   const addLog = (action: string, details: string) => {
     const newLog: LogEntry = {

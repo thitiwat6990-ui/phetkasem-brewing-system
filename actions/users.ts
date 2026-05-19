@@ -3,6 +3,16 @@
 import { sql } from '@/lib/db';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
+import { unstable_cache, revalidateTag } from 'next/cache';
+
+const getCachedUsersFromDB = unstable_cache(
+  async () => {
+    const result = await sql`SELECT id, username, first_name, last_name, phone, email, role, created_at FROM users ORDER BY id ASC`;
+    return result.rows;
+  },
+  ['users-list'],
+  { tags: ['users'] }
+);
 
 export async function getUsers() {
   try {
@@ -13,8 +23,7 @@ export async function getUsers() {
     const session = JSON.parse(sessionStr);
     if (session.role !== 'Master brewer' && session.role !== 'admin') return [];
 
-    const result = await sql`SELECT id, username, first_name, last_name, phone, email, role, created_at FROM users ORDER BY id ASC`;
-    return result.rows;
+    return await getCachedUsersFromDB();
   } catch (e) {
     return [];
   }
@@ -32,6 +41,7 @@ export async function updateUserRole(userId: number, newRole: string) {
     }
 
     await sql`UPDATE users SET role = ${newRole} WHERE id = ${userId}`;
+    revalidateTag('users');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -55,6 +65,7 @@ export async function deleteUserAction(userId: number) {
     }
 
     await sql`DELETE FROM users WHERE id = ${userId}`;
+    revalidateTag('users');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -95,6 +106,7 @@ export async function createAccountAction(formData: FormData) {
       VALUES (${username}, ${hash}, ${firstName}, ${lastName}, ${phone || null}, ${email || null}, ${role})
     `;
     
+    revalidateTag('users');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
