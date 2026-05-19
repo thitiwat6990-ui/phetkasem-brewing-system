@@ -7,7 +7,7 @@ import { logoutAction } from '@/actions/auth';
 import { useLanguage } from '@/lib/i18nContext';
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['employee', 'Master brewer', 'admin'] },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['employee', 'Master brewer', 'admin'] },
   { name: 'Inventory', href: '/inventory', icon: Database, roles: ['employee', 'Master brewer', 'admin'] },
   { name: 'Keg Stock', href: '/kegs', icon: Archive, roles: ['employee', 'Master brewer', 'admin'] },
   { name: 'Batch Tracker', href: '/batches', icon: KanbanSquare, roles: ['Master brewer', 'admin'] },

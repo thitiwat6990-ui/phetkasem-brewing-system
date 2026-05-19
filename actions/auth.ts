@@ -40,7 +40,7 @@ export async function loginAction(prevState: any, formData: FormData) {
     return { success: false, error: 'An error occurred during login: ' + error.message };
   }
   
-  redirect('/');
+  redirect('/dashboard');
 }
 
 export async function registerAction(prevState: any, formData: FormData) {
@@ -88,7 +88,7 @@ export async function registerAction(prevState: any, formData: FormData) {
     return { success: false, error: 'An error occurred during registration: ' + error.message };
   }
   
-  redirect('/');
+  redirect('/dashboard');
 }
 
 export async function logoutAction() {
