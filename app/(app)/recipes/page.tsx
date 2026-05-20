@@ -22,7 +22,7 @@ export default function RecipesPage() {
   const handleAddNew = () => {
     addRecipe({
       name: 'New Recipe',
-      style: 'Custom Style',
+      style: 'Hazy',
       targetAbv: 5.0,
       ibu: 30,
       ingredients: [],
@@ -86,7 +86,7 @@ export default function RecipesPage() {
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-xs font-bold px-3 py-1 bg-white/5 border border-white/10 text-brand-amber rounded-lg uppercase tracking-wider">
-                  {recipe.style}
+                  {recipe.style === 'Custom Style' ? 'Hazy' : recipe.style}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-text-muted text-sm font-mono">{recipe.id}</span>

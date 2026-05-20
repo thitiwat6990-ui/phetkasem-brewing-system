@@ -97,6 +97,19 @@ export async function logoutAction() {
   redirect('/login');
 }
 
+export async function getUserSession() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('session');
+  if (sessionCookie && sessionCookie.value) {
+    try {
+      return JSON.parse(sessionCookie.value);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function checkUsernameAction(username: string) {
   try {
     if (!username) return { available: true };

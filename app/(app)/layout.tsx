@@ -6,11 +6,11 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { getInitialState } from '@/actions/data';
 
-async function BrewDataProvider({ children }: { children: React.ReactNode }) {
+async function BrewDataProvider({ children, user }: { children: React.ReactNode, user: any }) {
   const result = await getInitialState();
   const initialData = result.success ? result.data : undefined;
 
-  return <BrewProvider initialData={initialData}>{children}</BrewProvider>;
+  return <BrewProvider initialData={initialData} user={user}>{children}</BrewProvider>;
 }
 
 function DashboardSkeleton() {
@@ -47,7 +47,7 @@ export default async function AppLayout({
     <LanguageProvider>
       <AppShell user={user}>
         <Suspense fallback={<DashboardSkeleton />}>
-          <BrewDataProvider>
+          <BrewDataProvider user={user}>
             {children}
           </BrewDataProvider>
         </Suspense>

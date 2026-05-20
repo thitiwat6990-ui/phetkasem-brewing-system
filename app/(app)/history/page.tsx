@@ -6,6 +6,20 @@ import { Clock, Activity, User, Info } from 'lucide-react';
 export default function HistoryPage() {
   const { logs } = useBrew();
 
+  const getActionTheme = (action: string) => {
+    const a = action.toUpperCase();
+    if (a.includes('DELETE') || a.includes('REMOVE') || a.includes('CANCEL')) {
+      return 'text-red-500 bg-red-500/10 border-red-500/20';
+    }
+    if (a.includes('UPDATE') || a.includes('EDIT') || a.includes('MODIFY') || a.includes('PACKAGE') || a.includes('RESERVE')) {
+      return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+    }
+    if (a.includes('ADD') || a.includes('CREATE') || a.includes('NEW')) {
+      return 'text-brand-green bg-brand-green/10 border-brand-green/20';
+    }
+    return 'text-text-muted bg-white/5 border-white/10';
+  };
+
   return (
     <div className="p-8 font-sans max-w-7xl mx-auto">
       <header className="mb-10">
@@ -22,7 +36,8 @@ export default function HistoryPage() {
             <thead>
               <tr className="bg-black/20 border-b border-white/5">
                 <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm w-48">Timestamp</th>
-                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm w-32">User</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm w-24">User ID</th>
+                <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm w-32">Username</th>
                 <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm w-48">Action</th>
                 <th className="p-4 font-bold text-text-secondary uppercase tracking-wider text-sm">Details</th>
               </tr>
@@ -38,27 +53,32 @@ export default function HistoryPage() {
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="p-4">
-                      <div className="flex items-center gap-2 text-text-muted font-mono text-sm">
-                        <Clock className="w-4 h-4 text-brand-amber/50" />
+                      <div className="flex items-center gap-2 font-mono text-sm opacity-80">
+                        <Clock className="w-4 h-4" />
                         {new Date(log.timestamp).toLocaleString()}
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2 text-white font-bold">
-                        <User className="w-4 h-4 text-brand-green" />
+                      <div className="font-mono text-sm text-text-muted">
+                        {log.userId ? `#${log.userId}` : '-'}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 font-bold text-white">
+                        <User className="w-4 h-4 text-brand-amber" />
                         {log.user}
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-brand-amber uppercase tracking-wider">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-bold uppercase tracking-wider ${getActionTheme(log.action)}`}>
                         <Activity className="w-3 h-3" />
                         {log.action.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2 text-text-muted">
-                        <Info className="w-4 h-4 text-brand-amber/50 shrink-0" />
-                        <span className="group-hover:text-white transition-colors">{log.details}</span>
+                      <div className="flex items-center gap-2 text-text-muted group-hover:text-white transition-colors">
+                        <Info className="w-4 h-4 shrink-0 text-brand-amber/50" />
+                        <span className="font-medium">{log.details}</span>
                       </div>
                     </td>
                   </tr>

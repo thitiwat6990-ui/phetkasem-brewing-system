@@ -16,22 +16,14 @@ export default function Dashboard() {
   const [packagingTankId, setPackagingTankId] = useState<string | null>(null);
   const [detailsTankId, setDetailsTankId] = useState<string | null>(null);
 
-  // Date Filter State (Default to current month)
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-  const [startDate, setStartDate] = useState(firstDay);
-  const [endDate, setEndDate] = useState(lastDay);
-
-  // Filter batches based on date range
-  const filteredBatches = useMemo(() => {
-    return batches.filter(b => b.startDate >= startDate && b.startDate <= endDate);
-  }, [batches, startDate, endDate]);
+  // Style Filter
+  const [selectedStyle, setSelectedStyle] = useState('All');
+  const filterStyles = ['All', 'Hazy', 'AIPA', 'Lager', 'Stout', 'Sour', 'Mead', 'Fruit', 'Wheat', 'Other'];
 
   // Computed metrics from context
   const availableTanksCount = tanks.filter(t => t.status === 'Empty').length;
-  const batchesThisMonth = filteredBatches.length;
-  const totalVolume = filteredBatches.reduce((sum, b) => {
+  const batchesThisMonth = batches.length;
+  const totalVolume = batches.reduce((sum, b) => {
     const r = recipes.find(rec => rec.id === b.recipeId);
     return sum + (r?.process?.batchVolume || 0);
   }, 0);
@@ -82,21 +74,21 @@ export default function Dashboard() {
   // Pie Chart: Most Brewed Recipes
   const pieData = useMemo(() => {
     const counts: Record<string, number> = {};
-    filteredBatches.forEach(b => {
+    batches.forEach(b => {
       counts[b.recipeId] = (counts[b.recipeId] || 0) + 1;
     });
     return Object.entries(counts).map(([recipeId, count]) => ({
       name: getRecipeName(recipeId),
       value: count,
     })).sort((a, b) => b.value - a.value);
-  }, [filteredBatches, recipes]);
+  }, [batches, recipes]);
 
   const PIE_COLORS = ['#FFBF00', '#F97316', '#3B82F6', '#10B981', '#8B5CF6'];
   const mostBrewed = pieData.length > 0 ? pieData[0] : null;
 
   // Bar Chart: Target vs Actual OG
   const barData = useMemo(() => {
-    return filteredBatches.map(b => {
+    return batches.map(b => {
       const recipe = recipes.find(r => r.id === b.recipeId);
       const targetOg = recipe?.vitals?.originalGravity || 1.050;
 
@@ -111,7 +103,7 @@ export default function Dashboard() {
         actual: actualOg,
       };
     });
-  }, [filteredBatches, recipes, tanks]);
+  }, [batches, recipes, tanks]);
 
 
   return (
@@ -124,37 +116,21 @@ export default function Dashboard() {
           <p className="text-text-secondary mt-2">{t('Monitor your production zones and fermentor tanks.')}</p>
         </div>
 
-        {/* Date Filter */}
+        {/* Style Filter */}
         <div className="flex items-center gap-4 relative z-20">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-text-secondary flex items-center gap-1.5 uppercase tracking-wider">
-              <Calendar className="w-3.5 h-3.5 text-brand-amber" />
-              {t('From Date')}
+              {t('Select Style')}
             </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              onClick={(e) => {
-                try { e.currentTarget.showPicker(); } catch (err) {}
-              }}
-              className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-40 shadow-lg cursor-pointer transition-all"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-text-secondary flex items-center gap-1.5 uppercase tracking-wider">
-              <Calendar className="w-3.5 h-3.5 text-brand-amber" />
-              {t('To Date')}
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              onClick={(e) => {
-                try { e.currentTarget.showPicker(); } catch (err) {}
-              }}
-              className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-40 shadow-lg cursor-pointer transition-all"
-            />
+            <select
+              value={selectedStyle}
+              onChange={(e) => setSelectedStyle(e.target.value)}
+              className="bg-bg-panel border border-white/20 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-amber/50 focus:border-brand-amber text-sm font-bold text-white w-48 shadow-lg cursor-pointer transition-all appearance-none"
+            >
+              {filterStyles.map(style => (
+                <option key={style} value={style}>{style}</option>
+              ))}
+            </select>
           </div>
         </div>
       </header>
@@ -234,6 +210,9 @@ export default function Dashboard() {
                 const dryHopDue = tank.status === 'Brewing' && dryHopDaySetting !== null && !tank.dryHopCompleted && daysFermenting >= dryHopDaySetting;
                 const isBlue = tank.status === 'Brewing' && daysFermenting >= 14;
                 const isPurple = tank.status === 'ColdCrash' && daysColdCrashing >= 2;
+                
+                // Determine if this tank matches the selected style filter
+                const isStyleMatch = selectedStyle !== 'All' && tank.status !== 'Empty' && recipe?.style?.toLowerCase().includes(selectedStyle.toLowerCase());
 
                 return (
                 <div
@@ -247,7 +226,7 @@ export default function Dashboard() {
                     : tank.status === 'ColdCrash'
                       ? isPurple ? 'bg-purple-500/10 border-purple-500/80 shadow-[0_0_15px_rgba(168,85,247,0.3)] cursor-default' : 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] cursor-default'
                       : isBlue ? 'bg-blue-500/10 border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.3)] cursor-default' : 'bg-brand-amber/5 border-brand-amber/30 cursor-default'
-                    }`}
+                    } ${isStyleMatch ? 'ring-4 ring-brand-amber shadow-[0_0_20px_rgba(255,191,0,0.6)] z-10' : ''}`}
                 >
                   {dryHopDue && (
                     <div className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded shadow-lg animate-pulse z-10">
@@ -359,7 +338,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-text-muted text-sm italic">
-                No batches found in this date range.
+                No batches found.
               </div>
             )}
           </div>
@@ -415,7 +394,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-text-muted text-sm italic">
-                No batches found in this date range.
+                No batches found.
               </div>
             )}
           </div>

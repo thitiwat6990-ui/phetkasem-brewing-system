@@ -103,7 +103,8 @@ export default function KeggingModal({ tankId, onClose }: { tankId: string, onCl
                   <input 
                     type="number" 
                     required 
-                    min="1"
+                    min="0.1"
+                    step="any"
                     value={litersPerKeg}
                     onChange={(e) => setLitersPerKeg(e.target.value === '' ? '' : parseFloat(e.target.value))}
                     className="w-full pl-4 pr-10 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-white"

@@ -116,6 +116,9 @@ export type KegReservation = {
   quantity: number;
   dateReserved: string;
   status: KegReservationStatus;
+  shippingCost?: number;
+  discount?: number;
+  totalPrice?: number;
 };
 
 export type KegBatch = {
@@ -132,9 +135,23 @@ export type KegBatch = {
   reservations: KegReservation[];
 };
 
+export type Customer = {
+  id: string;
+  name: string;
+  shopName: string;
+  mapsUrl: string;
+};
+
+export const MOCK_CUSTOMERS: Customer[] = [
+  { id: '1', name: 'Somchai Beer', shopName: 'Craft Beer Bar BKK', mapsUrl: 'https://maps.app.goo.gl/somchai' },
+  { id: '2', name: 'Nongluck', shopName: 'BKK Taproom', mapsUrl: 'https://maps.app.goo.gl/nongluck' },
+  { id: '3', name: 'Pongsak', shopName: 'The Drunken Cat', mapsUrl: 'https://maps.app.goo.gl/pongsak' },
+];
+
 export type LogEntry = {
   id: string;
   timestamp: string;
+  userId?: string;
   user: string;
   action: string;
   details: string;

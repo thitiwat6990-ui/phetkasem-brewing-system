@@ -19,19 +19,31 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
   const availableSecondTanks = tanks.filter(t => t.status === 'Empty' && t.id !== tankId);
 
   // Check if we have enough ingredients for the selected recipe
-  const hasInsufficientIngredients = () => {
-    if (!selectedRecipe) return false;
-    for (const ing of selectedRecipe.ingredients) {
-      const invItem = inventory.find(i => i.id === ing.itemId);
-      if (!invItem || invItem.quantity < ing.quantity) {
-        return true;
+  const getMissingIngredients = () => {
+    if (!selectedRecipe) return [];
+    
+    const requiredIngredients: { name: string; quantity: number }[] = [];
+    selectedRecipe.malts?.forEach(m => requiredIngredients.push({ name: m.name, quantity: m.weight }));
+    selectedRecipe.hops?.forEach(h => requiredIngredients.push({ name: h.name, quantity: h.weight }));
+    selectedRecipe.yeasts?.forEach(y => requiredIngredients.push({ name: y.name, quantity: y.weight }));
+
+    const missingItems: { name: string; shortBy: number; unit: string }[] = [];
+    
+    for (const req of requiredIngredients) {
+      const invItem = inventory.find(i => i.name.toLowerCase().trim() === req.name.toLowerCase().trim());
+      if (!invItem) {
+        missingItems.push({ name: req.name, shortBy: req.quantity, unit: 'units' });
+      } else if (invItem.quantity < req.quantity) {
+        missingItems.push({ name: req.name, shortBy: req.quantity - invItem.quantity, unit: invItem.unit });
       }
     }
-    return false;
+    return missingItems;
   };
 
+  const missingItems = getMissingIngredients();
+
   const handleStart = () => {
-    if (!selectedRecipeId || hasInsufficientIngredients()) return;
+    if (!selectedRecipeId || missingItems.length > 0) return;
     if (is100L && !secondTankId) {
       setError('A second tank is required for a 100L batch.');
       return;
@@ -76,7 +88,7 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
                 }`}
               >
                 <div className="font-bold text-lg">{recipe.name}</div>
-                <div className="text-xs mt-1 opacity-80">{recipe.style}</div>
+                <div className="text-xs mt-1 opacity-80">{recipe.style === 'Custom Style' ? 'Hazy' : recipe.style}</div>
               </button>
             ))}
           </div>
@@ -143,16 +155,30 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
                   );
                 })}
 
-                {error && (
+                {/* Ingredient Check Warning */}
+            {selectedRecipeId && missingItems.length > 0 && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 shadow-inner mb-6">
+                <h3 className="text-sm font-bold text-red-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Insufficient Inventory
+                </h3>
+                <p className="text-xs text-red-400 mb-3">Not enough stock to brew this recipe. Missing:</p>
+                <ul className="space-y-1.5 list-disc list-inside">
+                  {missingItems.map((item, idx) => (
+                    <li key={idx} className="text-sm text-red-200">
+                      <strong className="text-white">{item.name}:</strong> Short by <span className="font-mono text-red-400">{item.shortBy.toFixed(2)} {item.unit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {error && (
                   <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-sm font-semibold whitespace-pre-wrap">
                     {error}
                   </div>
                 )}
-                {!error && hasInsufficientIngredients() && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-sm font-semibold">
-                    You do not have enough inventory to brew this recipe.
-                  </div>
-                )}
+
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-text-muted text-sm pb-10">
@@ -170,11 +196,11 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
           </button>
           <button 
             onClick={handleStart}
-            disabled={!selectedRecipeId || hasInsufficientIngredients() || (is100L && !secondTankId)}
-            className={`px-6 py-2.5 rounded-xl font-bold transition-colors ${
-              selectedRecipeId && !hasInsufficientIngredients() && (!is100L || secondTankId)
-                ? 'bg-brand-amber text-black hover:bg-brand-amber-dark' 
-                : 'bg-white/10 text-white/30 cursor-not-allowed'
+            disabled={!selectedRecipeId || missingItems.length > 0 || (is100L && !secondTankId)}
+            className={`px-8 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${
+              !selectedRecipeId || missingItems.length > 0 || (is100L && !secondTankId)
+                ? 'bg-white/5 text-text-muted cursor-not-allowed border border-white/5'
+                : 'bg-brand-green hover:bg-emerald-500 text-white'
             }`}
           >
             Start Brew

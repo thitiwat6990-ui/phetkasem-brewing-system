@@ -19,7 +19,7 @@ export async function getInitialState() {
     const inventoryRes = await sql`SELECT details FROM materials WHERE details IS NOT NULL`;
     const batchesRes = await sql`SELECT details FROM brew_batches WHERE details IS NOT NULL`;
     const kegBatchesRes = await sql`SELECT details FROM keg_batches WHERE details IS NOT NULL`;
-    const logsRes = await sql`SELECT id, timestamp, username as user, action, details FROM system_logs ORDER BY timestamp DESC LIMIT 100`;
+    const logsRes = await sql`SELECT id, timestamp, user_id as "userId", username as user, action, details FROM system_logs ORDER BY timestamp DESC LIMIT 100`;
 
     const tanks = tanksRes.rows.map(r => r.details as Tank);
     const inventory = inventoryRes.rows.map(r => r.details as InventoryItem);
@@ -38,8 +38,8 @@ export async function getInitialState() {
 export async function saveLog(log: LogEntry) {
   try {
     await sql`
-      INSERT INTO system_logs (id, timestamp, username, action, details) 
-      VALUES (${log.id}, ${log.timestamp}, ${log.user}, ${log.action}, ${log.details})
+      INSERT INTO system_logs (id, timestamp, user_id, username, action, details) 
+      VALUES (${log.id}, ${log.timestamp}, ${log.userId}, ${log.user}, ${log.action}, ${log.details})
     `;
     return { success: true };
   } catch (error: any) {

@@ -1,19 +1,31 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBrew } from '@/lib/BrewContext';
+import { getUserSession } from '@/actions/auth';
 import {
   Archive, DollarSign, TrendingUp, ShoppingCart, Calendar,
-  Filter, Users, Truck, CheckCircle, Clock
+  Filter, Users, Truck, CheckCircle, Clock, Trash2
 } from 'lucide-react';
 import { useLanguage } from '@/lib/i18nContext';
 import KegReservationModal from '@/components/KegReservationModal';
+import CustomerModal from '@/components/CustomerModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, Cell } from 'recharts';
 
 export default function KegStockPage() {
-  const { kegBatches, recipes } = useBrew();
+  const { kegBatches, recipes, deleteKegBatch, deleteKegReservation } = useBrew();
   const { t } = useLanguage();
   const [selectedKegBatchId, setSelectedKegBatchId] = useState<string | null>(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>('employee');
+
+  useEffect(() => {
+    getUserSession().then(session => {
+      if (session && session.role) {
+        setUserRole(session.role);
+      }
+    });
+  }, []);
 
   // States ใหม่สำหรับฟีเจอร์ที่เพิ่มเข้ามา
   const [selectedStyle, setSelectedStyle] = useState<string>('All');
@@ -87,7 +99,9 @@ export default function KegStockPage() {
           batchNumber: batch.batchNumber,
           recipeName: getRecipeName(batch.recipeId),
           pricePerKeg: batch.pricePerKeg,
-          totalPrice: res.quantity * batch.pricePerKeg,
+          totalPrice: res.totalPrice ?? (res.quantity * batch.pricePerKeg),
+          shippingCost: res.shippingCost || 0,
+          discount: res.discount || 0,
         });
       });
     });
@@ -131,11 +145,21 @@ export default function KegStockPage() {
 
   return (
     <div className="p-8 font-sans max-w-7xl mx-auto">
-      <header className="mb-10">
-        <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-          {t('Keg Stock & Sales')}
-        </h1>
-        <p className="text-text-secondary mt-2">{t('Manage packaged kegs, track reservations, and view sales analytics.')}</p>
+      <header className="mb-10 flex justify-between items-start">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+            {t('Keg Stock & Sales')}
+          </h1>
+          <p className="text-text-secondary mt-2">{t('Manage packaged kegs, track reservations, and view sales analytics.')}</p>
+        </div>
+        {(userRole === 'Master brewer' || userRole === 'admin') && (
+          <button 
+            onClick={() => setIsCustomerModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-amber/10 border border-brand-amber/20 text-brand-amber rounded-xl font-bold hover:bg-brand-amber hover:text-black transition-colors"
+          >
+            <Users className="w-5 h-5" /> Manage Customers
+          </button>
+        )}
       </header>
 
       {/* Metrics Section */}
@@ -243,7 +267,9 @@ export default function KegStockPage() {
                   <th className="p-4">Packaged</th>
                   <th className="p-4">Volume/Price</th>
                   <th className="p-4 text-center">Availability</th>
-                  <th className="p-4 text-right">Actions</th>
+                  {(userRole === 'Master brewer' || userRole === 'admin') && (
+                    <th className="p-4 text-right">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -276,20 +302,35 @@ export default function KegStockPage() {
                         )}
                       </div>
                     </td>
-                    <td className="p-4 align-top text-right">
-                      {kb.availableKegs > 0 ? (
-                        <button
-                          onClick={() => setSelectedKegBatchId(kb.id)}
-                          className="px-4 py-2 bg-brand-green/20 text-brand-green hover:bg-brand-green hover:text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 w-full max-w-[140px] ml-auto"
-                        >
-                          <ShoppingCart className="w-4 h-4" /> Reserve
-                        </button>
-                      ) : (
-                        <span className="inline-block px-4 py-2 bg-white/5 text-text-muted rounded-xl text-sm font-bold uppercase tracking-wider">
-                          Sold Out
-                        </span>
-                      )}
-                    </td>
+                    {(userRole === 'Master brewer' || userRole === 'admin') && (
+                      <td className="p-4 align-top text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {kb.availableKegs > 0 ? (
+                            <button
+                              onClick={() => setSelectedKegBatchId(kb.id)}
+                              className="px-4 py-2 bg-brand-green/20 text-brand-green hover:bg-brand-green hover:text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                            >
+                              <ShoppingCart className="w-4 h-4" /> Reserve
+                            </button>
+                          ) : (
+                            <span className="inline-block px-4 py-2 bg-white/5 text-text-muted rounded-xl text-sm font-bold uppercase tracking-wider">
+                              Sold Out
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this Keg Batch? All associated reservations will be deleted.')) {
+                                deleteKegBatch(kb.id);
+                              }
+                            }}
+                            className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-2"
+                            title="Delete Keg Batch"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filteredKegBatches.length === 0 && (
@@ -328,6 +369,10 @@ export default function KegStockPage() {
               <tbody className="divide-y divide-white/5">
                 {allOrders.map((order) => {
                   const currentStatus = orderStatuses[order.resKey] || order.status || 'รอชำระ';
+                  
+                  // Hide if 'Paid'
+                  if (currentStatus === 'ชำระแล้ว' || currentStatus === 'Paid') return null;
+
                   return (
                     <tr key={order.resKey} className="hover:bg-white/[0.02] transition-colors">
                       <td className="p-4">
@@ -340,18 +385,41 @@ export default function KegStockPage() {
                       </td>
                       <td className="p-4">
                         <div className="font-bold text-brand-green">฿{order.totalPrice.toLocaleString()}</div>
+                        {(order.shippingCost > 0 || order.discount > 0) && (
+                          <div className="text-[10px] text-text-muted mt-1">
+                            {order.shippingCost > 0 && `+ ฿${order.shippingCost} Ship`}
+                            {order.shippingCost > 0 && order.discount > 0 && ' | '}
+                            {order.discount > 0 && `- ฿${order.discount} Disc`}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4 text-right">
-                        <select
-                          value={currentStatus}
-                          onChange={(e) => handleStatusChange(order.resKey, e.target.value)}
-                          className={`text-xs font-bold px-3 py-1.5 rounded-lg border focus:outline-none appearance-none cursor-pointer ${getStatusColor(currentStatus)}`}
-                        >
-                          <option value="รอชำระ">⏳ รอชำระ</option>
-                          <option value="ชำระแล้ว">💸 ชำระแล้ว</option>
-                          <option value="รอส่งสินค้า">📦 รอส่งสินค้า</option>
-                          <option value="ส่งแล้ว">✅ ส่งแล้ว</option>
-                        </select>
+                        <div className="flex items-center justify-end gap-2">
+                          <select
+                            value={currentStatus}
+                            onChange={(e) => handleStatusChange(order.resKey, e.target.value)}
+                            disabled={userRole !== 'Master brewer' && userRole !== 'admin'}
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg border focus:outline-none appearance-none cursor-pointer ${getStatusColor(currentStatus)} ${(userRole !== 'Master brewer' && userRole !== 'admin') ? 'opacity-70 cursor-not-allowed' : ''}`}
+                          >
+                            <option value="รอชำระ">⏳ รอชำระ</option>
+                            <option value="ชำระแล้ว">💸 ชำระแล้ว</option>
+                            <option value="รอส่งสินค้า">📦 รอส่งสินค้า</option>
+                            <option value="ส่งแล้ว">✅ ส่งแล้ว</option>
+                          </select>
+                          {(userRole === 'Master brewer' || userRole === 'admin') && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this reservation?')) {
+                                  deleteKegReservation(order.batchId, order.resKey);
+                                }
+                              }}
+                              className="p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-1"
+                              title="Delete Order"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -430,6 +498,10 @@ export default function KegStockPage() {
           kegBatchId={selectedKegBatchId}
           onClose={() => setSelectedKegBatchId(null)}
         />
+      )}
+
+      {isCustomerModalOpen && (
+        <CustomerModal onClose={() => setIsCustomerModalOpen(false)} />
       )}
     </div>
   );

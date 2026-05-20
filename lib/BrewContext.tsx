@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Tank, InventoryItem, Recipe, LogEntry, Batch, KegBatch, KegReservation, MOCK_TANKS, MOCK_INVENTORY, MOCK_RECIPES, MOCK_SUPPLIERS, MOCK_BATCHES, MOCK_KEG_BATCHES } from './mockData';
+import { Tank, InventoryItem, Recipe, LogEntry, Batch, KegBatch, KegReservation, Customer, MOCK_TANKS, MOCK_INVENTORY, MOCK_RECIPES, MOCK_SUPPLIERS, MOCK_BATCHES, MOCK_KEG_BATCHES, MOCK_CUSTOMERS } from './mockData';
 import { getInitialState, saveRecipe, removeRecipe, saveInventoryItem, removeInventoryItem, saveTank, saveBatch, removeBatch, saveKegBatch, saveLog } from '@/actions/data';
 import { sendLineNotification } from '@/actions/line';
 
@@ -13,15 +13,22 @@ type BrewContextType = {
   logs: LogEntry[];
   batches: Batch[];
   kegBatches: KegBatch[];
+  customers: Customer[];
 
-  startBrew: (tankId: string, recipeId: string) => { success: boolean; message: string };
+  startBrew: (tankId: string, recipeId: string, secondTankId?: string) => { success: boolean; message: string };
   cancelBrew: (tankId: string) => { success: boolean; message: string };
   updateTankOg: (tankId: string, og: number) => void;
   updateTankPh: (tankId: string, ph: number) => void;
   toggleDryHop: (tankId: string, completed: boolean) => void;
   coldCrashTank: (tankId: string) => { success: boolean; message: string };
   packageKegs: (tankId: string, totalKegs: number, litersPerKeg: number, pricePerKeg: number, shippingCost: number, fg: number) => { success: boolean; message: string };
-  addKegReservation: (kegBatchId: string, customerName: string, shopName: string, quantity: number) => { success: boolean; message: string };
+  addKegReservation: (kegBatchId: string, customerName: string, shopName: string, quantity: number, shippingCost: number, discount: number, totalPrice: number) => { success: boolean; message: string };
+  deleteKegBatch: (id: string) => void;
+  deleteKegReservation: (kegBatchId: string, resId: string) => void;
+
+  addCustomer: (customer: Omit<Customer, 'id'>) => void;
+  updateCustomer: (id: string, updates: Partial<Customer>) => void;
+  deleteCustomer: (id: string) => void;
 
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
   updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => void;
@@ -39,7 +46,7 @@ type BrewContextType = {
 
 const BrewContext = createContext<BrewContextType | undefined>(undefined);
 
-export function BrewProvider({ children, initialData }: { children: React.ReactNode, initialData?: any }) {
+export function BrewProvider({ children, initialData, user }: { children: React.ReactNode, initialData?: any, user?: any }) {
   // Merge initialData with MOCK data synchronously during mount
   const initialTanks = initialData?.tanks?.length ? 
     MOCK_TANKS.map(mt => initialData.tanks.find((dt: Tank) => dt.id === mt.id) || mt) : MOCK_TANKS;
@@ -59,7 +66,21 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
   const [logs, setLogs] = useState<LogEntry[]>(initialData?.logs || []);
   const [batches, setBatches] = useState<Batch[]>(initialData?.batches || MOCK_BATCHES);
   const [kegBatches, setKegBatches] = useState<KegBatch[]>(initialData?.kegBatches || MOCK_KEG_BATCHES);
+  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
   const [isLoaded, setIsLoaded] = useState(true); // Always loaded if using initialData
+
+  useEffect(() => {
+    const localCustomers = localStorage.getItem('pks_customers');
+    if (localCustomers) {
+      try {
+        setCustomers(JSON.parse(localCustomers));
+      } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('pks_customers', JSON.stringify(customers));
+  }, [customers]);
 
 
 
@@ -67,7 +88,8 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
     const newLog: LogEntry = {
       id: `log-${Date.now()}`,
       timestamp: new Date().toISOString(),
-      user: 'Brewer', // Defaulting to Brewer for now
+      userId: user?.id,
+      user: user?.name ? `@${user.name}` : user?.username ? `@${user.username}` : '@Brewer',
       action,
       details
     };
@@ -351,7 +373,15 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
 
   // ค้นหาฟังก์ชัน addKegReservation ในไฟล์ของคุณแล้วแก้เป็นส่วนนี้ครับ
 
-  const addKegReservation = (kegBatchId: string, customerName: string, shopName: string, quantity: number) => {
+  const addKegReservation = (
+    kegBatchId: string, 
+    customerName: string, 
+    shopName: string, 
+    quantity: number,
+    shippingCost: number = 0,
+    discount: number = 0,
+    totalPrice?: number
+  ) => {
     const kegBatch = kegBatches.find(kb => kb.id === kegBatchId);
     if (!kegBatch) return { success: false, message: 'Keg batch not found.' };
 
@@ -359,13 +389,18 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
       return { success: false, message: `Only ${kegBatch.availableKegs} kegs available.` };
     }
 
+    const calculatedTotal = totalPrice ?? ((quantity * kegBatch.pricePerKeg) + shippingCost - discount);
+
     const reservation: KegReservation = {
       id: `res-${Date.now()}`,
       customerName,
       shopName,
       quantity,
       dateReserved: new Date().toISOString().split('T')[0],
-      status: 'Pending Payment' // <--- เพิ่มบรรทัดนี้เข้าไปเพื่อให้ตรงตาม Type KegReservation
+      status: 'Pending Payment',
+      shippingCost,
+      discount,
+      totalPrice: calculatedTotal
     };
 
     let updatedKegBatch: KegBatch | null = null;
@@ -385,6 +420,27 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
 
     addLog('KEG_RESERVATION', `Reserved ${quantity} kegs of ${kegBatch.batchNumber} for ${customerName} (${shopName})`);
     return { success: true, message: 'Reservation added successfully.' };
+  };
+
+  const deleteKegBatch = (id: string) => {
+    setKegBatches(prev => prev.filter(k => k.id !== id));
+    addLog('DELETED_KEG_BATCH', `Deleted keg batch ID: ${id}`);
+  };
+
+  const deleteKegReservation = (kegBatchId: string, resId: string) => {
+    setKegBatches(prev => prev.map(kb => {
+      if (kb.id === kegBatchId) {
+        const resToRemove = kb.reservations.find(r => r.id === resId);
+        if (!resToRemove) return kb;
+        return {
+          ...kb,
+          availableKegs: kb.availableKegs + resToRemove.quantity,
+          reservations: kb.reservations.filter(r => r.id !== resId)
+        };
+      }
+      return kb;
+    }));
+    addLog('DELETED_RESERVATION', `Deleted reservation from batch ${kegBatchId}`);
   };
 
   const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
@@ -461,6 +517,21 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
     addLog('DELETED_RECIPE', `Deleted recipe: ${recipe?.name || id}`);
   };
 
+  const addCustomer = (customer: Omit<Customer, 'id'>) => {
+    setCustomers(prev => [...prev, { ...customer, id: `cust-${Date.now()}` }]);
+    addLog('ADDED_CUSTOMER', `Added customer: ${customer.name}`);
+  };
+
+  const updateCustomer = (id: string, updates: Partial<Customer>) => {
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    addLog('UPDATED_CUSTOMER', `Updated customer ID: ${id}`);
+  };
+
+  const deleteCustomer = (id: string) => {
+    setCustomers(prev => prev.filter(c => c.id !== id));
+    addLog('DELETED_CUSTOMER', `Deleted customer ID: ${id}`);
+  };
+
   return (
     <BrewContext.Provider value={{
       tanks,
@@ -470,6 +541,7 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
       logs,
       batches,
       kegBatches,
+      customers,
       startBrew,
       cancelBrew,
       updateTankOg,
@@ -478,6 +550,8 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
       coldCrashTank,
       packageKegs,
       addKegReservation,
+      deleteKegBatch,
+      deleteKegReservation,
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,

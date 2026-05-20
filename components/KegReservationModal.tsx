@@ -2,7 +2,14 @@
 
 import { useState } from 'react';
 import { useBrew } from '@/lib/BrewContext';
-import { ShoppingCart, X } from 'lucide-react';
+import { ShoppingCart, X, MapPin } from 'lucide-react';
+
+const CUSTOMERS_DB = [
+  { id: '1', name: 'Somchai Beer', shopName: 'Craft Beer Bar BKK', mapsUrl: 'https://maps.app.goo.gl/somchai' },
+  { id: '2', name: 'Nongluck', shopName: 'BKK Taproom', mapsUrl: 'https://maps.app.goo.gl/nongluck' },
+  { id: '3', name: 'Pongsak', shopName: 'The Drunken Cat', mapsUrl: 'https://maps.app.goo.gl/pongsak' },
+  { id: '4', name: 'Other (Manual Entry)', shopName: '', mapsUrl: '' },
+];
 
 export default function KegReservationModal({ 
   kegBatchId, 
@@ -18,9 +25,26 @@ export default function KegReservationModal({
 
   const [customerName, setCustomerName] = useState('');
   const [shopName, setShopName] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
+  const [shippingCost, setShippingCost] = useState<number>(0);
+  const [discount, setDiscount] = useState<number>(0);
 
   if (!kegBatch || !recipe) return null;
+
+  const handleCustomerSelect = (id: string) => {
+    setSelectedCustomerId(id);
+    const customer = CUSTOMERS_DB.find(c => c.id === id);
+    if (customer && customer.id !== '4') {
+      setCustomerName(customer.name);
+      setShopName(customer.shopName);
+    } else {
+      setCustomerName('');
+      setShopName('');
+    }
+  };
+
+  const totalPrice = (quantity * kegBatch.pricePerKeg) + shippingCost - discount;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +59,7 @@ export default function KegReservationModal({
       return;
     }
 
-    const res = addKegReservation(kegBatchId, customerName, shopName, quantity);
+    const res = addKegReservation(kegBatchId, customerName, shopName, quantity, shippingCost, discount, totalPrice);
     if (res.success) {
       onClose();
     } else {
@@ -77,28 +101,58 @@ export default function KegReservationModal({
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
           <form id="reservation-form" onSubmit={handleSave} className="space-y-5">
             <div>
-              <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Customer Name</label>
-              <input 
-                type="text" 
-                required 
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="e.g. Somchai"
-                className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green focus:ring-1 focus:ring-brand-green outline-none transition-all font-medium text-white"
-              />
+              <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Select Customer</label>
+              <select
+                value={selectedCustomerId}
+                onChange={(e) => handleCustomerSelect(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green focus:ring-1 focus:ring-brand-green outline-none transition-all font-medium text-white cursor-pointer"
+              >
+                <option value="" disabled>-- Select a Customer --</option>
+                {CUSTOMERS_DB.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} {c.shopName ? `(${c.shopName})` : ''}</option>
+                ))}
+              </select>
             </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Shop Name</label>
-              <input 
-                type="text" 
-                required 
-                value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
-                placeholder="e.g. Craft Beer Bar BKK"
-                className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green focus:ring-1 focus:ring-brand-green outline-none transition-all font-medium text-white"
-              />
-            </div>
+
+            {selectedCustomerId === '4' && (
+              <div className="space-y-5 p-4 bg-white/5 rounded-xl border border-white/10">
+                <div>
+                  <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Customer Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="e.g. Somchai"
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green focus:ring-1 focus:ring-brand-green outline-none transition-all font-medium text-white"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Shop Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={shopName}
+                    onChange={(e) => setShopName(e.target.value)}
+                    placeholder="e.g. Craft Beer Bar BKK"
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green focus:ring-1 focus:ring-brand-green outline-none transition-all font-medium text-white"
+                  />
+                </div>
+              </div>
+            )}
+
+            {selectedCustomerId && selectedCustomerId !== '4' && CUSTOMERS_DB.find(c => c.id === selectedCustomerId)?.mapsUrl && (
+              <a 
+                href={CUSTOMERS_DB.find(c => c.id === selectedCustomerId)?.mapsUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-green hover:text-emerald-400 bg-brand-green/10 px-3 py-1.5 rounded-lg border border-brand-green/20 transition-colors"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                View on Google Maps
+              </a>
+            )}
 
             <div>
               <label className="block text-sm font-bold text-slate-300 mb-2 uppercase tracking-wider">Quantity (Kegs)</label>
@@ -118,9 +172,32 @@ export default function KegReservationModal({
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">Shipping Cost (฿)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={shippingCost}
+                  onChange={(e) => setShippingCost(parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green outline-none transition-all font-bold text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">Discount (฿)</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  value={discount}
+                  onChange={(e) => setDiscount(parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-3 rounded-xl border border-white/10 bg-black/30 focus:bg-black/50 focus:border-brand-green outline-none transition-all font-bold text-red-400"
+                />
+              </div>
+            </div>
+
             <div className="bg-brand-green/5 rounded-xl p-4 flex justify-between items-center border border-brand-green/10">
               <span className="text-sm font-bold text-text-muted uppercase tracking-wider">Total Price:</span>
-              <span className="text-xl font-black text-brand-green">฿ {(quantity * kegBatch.pricePerKeg).toLocaleString()}</span>
+              <span className="text-xl font-black text-brand-green">฿ {totalPrice.toLocaleString()}</span>
             </div>
           </form>
         </div>

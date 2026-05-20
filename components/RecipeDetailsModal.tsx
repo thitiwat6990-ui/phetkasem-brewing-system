@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Recipe, RecipeMalt, RecipeHop, RecipeYeast, RecipeMashStep, RecipeVitals, RecipeProcess } from '@/lib/mockData';
 import { X, Edit2, Save, Plus, Trash2, Leaf } from 'lucide-react';
 import { useBrew } from '@/lib/BrewContext';
+import Combobox from '@/components/Combobox';
 
 type Props = {
   recipe: Recipe;
@@ -11,9 +12,13 @@ type Props = {
 };
 
 export default function RecipeDetailsModal({ recipe, onClose }: Props) {
-  const { updateRecipe } = useBrew();
+  const { updateRecipe, inventory } = useBrew();
   const [isEditing, setIsEditing] = useState(false);
   const [editedRecipe, setEditedRecipe] = useState<Recipe>(recipe);
+
+  const maltOptions = inventory.filter(i => i.category === 'Malt').map(i => ({ id: i.id, label: `${i.name}${i.company ? ` - ${i.company}` : ''}` }));
+  const hopOptions = inventory.filter(i => i.category === 'Hops').map(i => ({ id: i.id, label: `${i.name}${i.company ? ` - ${i.company}` : ''}` }));
+  const yeastOptions = inventory.filter(i => i.category === 'Yeast').map(i => ({ id: i.id, label: `${i.name}${i.company ? ` - ${i.company}` : ''}` }));
 
   const handleSave = () => {
     updateRecipe(editedRecipe.id, editedRecipe);
@@ -314,7 +319,11 @@ export default function RecipeDetailsModal({ recipe, onClose }: Props) {
               <div className="space-y-3 max-w-xl mx-auto text-left">
                 {(editedRecipe.mashSteps || []).map((step, idx) => (
                   <div key={idx} className="flex flex-wrap gap-2 items-center bg-black/20 p-3 rounded-xl border border-white/5 text-sm">
-                    <input type="text" value={step.stepName} onChange={e => updateMash(idx, 'stepName', e.target.value)} className={`${inputClass} flex-1 min-w-[150px]`} placeholder="Step Name" />
+                    <select value={step.stepName} onChange={e => updateMash(idx, 'stepName', e.target.value)} className={`${inputClass} flex-1 min-w-[150px] appearance-none cursor-pointer`}>
+                      <option value="Protien rest">Protien rest</option>
+                      <option value="Temperature">Temperature</option>
+                      <option value="Mash out">Mash out</option>
+                    </select>
                     <div className="flex items-center gap-1">
                       <input type="number" value={step.temperature || ''} onChange={e => updateMash(idx, 'temperature', parseFloat(e.target.value))} className={smallInputClass} placeholder="°C" /> 
                       <span className="text-xs text-text-muted">°C</span>
@@ -358,7 +367,14 @@ export default function RecipeDetailsModal({ recipe, onClose }: Props) {
                       <input type="number" step="0.01" value={malt.weight || ''} onChange={e => updateMalt(idx, 'weight', parseFloat(e.target.value))} className={smallInputClass} placeholder="kg" /> 
                       <span className="text-xs text-text-muted w-4">kg</span>
                     </div>
-                    <input type="text" value={malt.name} onChange={e => updateMalt(idx, 'name', e.target.value)} className={`${inputClass} flex-1 min-w-[150px]`} placeholder="Malt Name" />
+                    <div className="flex-1 min-w-[150px]">
+                      <Combobox 
+                        options={maltOptions} 
+                        value={malt.name} 
+                        onChange={(val) => updateMalt(idx, 'name', val)} 
+                        placeholder="Select Malt..." 
+                      />
+                    </div>
                     <div className="flex items-center gap-1">
                       <input type="number" step="0.1" value={malt.percentage || ''} onChange={e => updateMalt(idx, 'percentage', parseFloat(e.target.value))} className={smallInputClass} placeholder="%" /> 
                       <span className="text-xs text-text-muted w-3">%</span>
@@ -432,7 +448,14 @@ export default function RecipeDetailsModal({ recipe, onClose }: Props) {
                       <input type="number" step="0.1" value={hop.weight || ''} onChange={e => updateHop(idx, 'weight', parseFloat(e.target.value))} className={smallInputClass} placeholder="g" /> 
                       <span className="text-xs text-text-muted w-3">g</span>
                     </div>
-                    <input type="text" value={hop.name} onChange={e => updateHop(idx, 'name', e.target.value)} className={`${inputClass} flex-1 min-w-[120px]`} placeholder="Hop Name" />
+                    <div className="flex-1 min-w-[120px]">
+                      <Combobox 
+                        options={hopOptions} 
+                        value={hop.name} 
+                        onChange={(val) => updateHop(idx, 'name', val)} 
+                        placeholder="Select Hop..." 
+                      />
+                    </div>
                     <div className="flex items-center gap-1">
                       <input type="number" step="0.1" value={hop.alphaAcid || ''} onChange={e => updateHop(idx, 'alphaAcid', parseFloat(e.target.value))} className={smallInputClass} placeholder="AA%" /> 
                       <span className="text-xs text-text-muted w-3">%</span>
@@ -485,7 +508,14 @@ export default function RecipeDetailsModal({ recipe, onClose }: Props) {
               <div className="space-y-3 max-w-2xl mx-auto text-left">
                 {(editedRecipe.yeasts || []).map((yeast, idx) => (
                   <div key={idx} className="flex flex-wrap gap-3 items-center bg-black/20 p-3 rounded-xl border border-white/5 text-sm">
-                    <input type="text" value={yeast.name} onChange={e => updateYeast(idx, 'name', e.target.value)} className={`${inputClass} flex-1 min-w-[150px]`} placeholder="Yeast Name" />
+                    <div className="flex-1 min-w-[150px]">
+                      <Combobox 
+                        options={yeastOptions} 
+                        value={yeast.name} 
+                        onChange={(val) => updateYeast(idx, 'name', val)} 
+                        placeholder="Select Yeast..." 
+                      />
+                    </div>
                     <div className="flex items-center gap-1">
                       <input type="number" step="0.1" value={yeast.weight || ''} onChange={e => updateYeast(idx, 'weight', parseFloat(e.target.value))} className={smallInputClass} placeholder="Qty" /> 
                       <span className="text-xs text-text-muted w-10">pkgs/g</span>
