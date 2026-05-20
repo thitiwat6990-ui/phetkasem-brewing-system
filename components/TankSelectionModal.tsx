@@ -5,11 +5,18 @@ import { useBrew } from '@/lib/BrewContext';
 import { X, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function TankSelectionModal({ tankId, onClose }: { tankId: string, onClose: () => void }) {
-  const { inventory, recipes, startBrew } = useBrew();
+  const { inventory, recipes, tanks, startBrew } = useBrew();
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  const [secondTankId, setSecondTankId] = useState<string>('');
   const [error, setError] = useState('');
 
   const selectedRecipe = recipes.find(r => r.id === selectedRecipeId);
+  
+  // Detect if it's a 100L batch
+  const is100L = selectedRecipe ? (selectedRecipe.name.includes('100L') || selectedRecipe.process?.batchVolume === 100) : false;
+  
+  // Get available tanks for second tank selection
+  const availableSecondTanks = tanks.filter(t => t.status === 'Empty' && t.id !== tankId);
 
   // Check if we have enough ingredients for the selected recipe
   const hasInsufficientIngredients = () => {
@@ -25,7 +32,11 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
 
   const handleStart = () => {
     if (!selectedRecipeId || hasInsufficientIngredients()) return;
-    const res = startBrew(tankId, selectedRecipeId);
+    if (is100L && !secondTankId) {
+      setError('A second tank is required for a 100L batch.');
+      return;
+    }
+    const res = startBrew(tankId, selectedRecipeId, is100L ? secondTankId : undefined);
     if (res.success) {
       onClose();
     } else {
@@ -71,8 +82,37 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
           </div>
 
           {/* Recipe Details & Ingredients */}
-          <div className="bg-bg-dark rounded-xl border border-white/5 p-5">
-            <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-4">Ingredients Required</h3>
+          <div className="flex flex-col gap-6">
+            
+            {/* Second Tank Selection (Dynamic) */}
+            {is100L && (
+              <div className="bg-brand-amber/10 border border-brand-amber/20 rounded-xl p-5 shadow-inner">
+                <h3 className="text-sm font-bold text-brand-amber uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  100L Batch Detected
+                </h3>
+                <p className="text-xs text-white/70 mb-4 leading-relaxed">
+                  This recipe requires 100L of capacity. Please select an additional available fermenter to distribute the brew.
+                </p>
+                <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Select Second Tank</label>
+                <select 
+                  value={secondTankId}
+                  onChange={(e) => setSecondTankId(e.target.value)}
+                  className="w-full bg-bg-dark border border-white/10 rounded-xl px-4 py-3 text-white font-medium focus:border-brand-amber outline-none cursor-pointer"
+                >
+                  <option value="" disabled>-- Choose a tank --</option>
+                  {availableSecondTanks.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} (50L)</option>
+                  ))}
+                </select>
+                {availableSecondTanks.length === 0 && (
+                  <p className="text-red-500 text-xs font-bold mt-2">No other empty tanks available!</p>
+                )}
+              </div>
+            )}
+
+            <div className="bg-bg-dark rounded-xl border border-white/5 p-5 flex-1">
+              <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-4">Ingredients Required</h3>
             
             {selectedRecipe ? (
               <div className="space-y-4">
@@ -119,6 +159,7 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
                 Select a recipe to view required ingredients.
               </div>
             )}
+            </div>
           </div>
         </div>
 
@@ -129,9 +170,9 @@ export default function TankSelectionModal({ tankId, onClose }: { tankId: string
           </button>
           <button 
             onClick={handleStart}
-            disabled={!selectedRecipeId || hasInsufficientIngredients()}
+            disabled={!selectedRecipeId || hasInsufficientIngredients() || (is100L && !secondTankId)}
             className={`px-6 py-2.5 rounded-xl font-bold transition-colors ${
-              selectedRecipeId && !hasInsufficientIngredients()
+              selectedRecipeId && !hasInsufficientIngredients() && (!is100L || secondTankId)
                 ? 'bg-brand-amber text-black hover:bg-brand-amber-dark' 
                 : 'bg-white/10 text-white/30 cursor-not-allowed'
             }`}

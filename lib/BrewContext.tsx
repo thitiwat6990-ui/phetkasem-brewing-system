@@ -75,12 +75,17 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
     saveLog(newLog); // Persist to database
   };
 
-  const startBrew = (tankId: string, recipeId: string) => {
+  const startBrew = (tankId: string, recipeId: string, secondTankId?: string) => {
     const recipe = recipes.find(r => r.id === recipeId);
     if (!recipe) return { success: false, message: 'Recipe not found.' };
 
     const tank = tanks.find(t => t.id === tankId);
-    if (!tank || tank.status !== 'Empty') return { success: false, message: 'Tank is not available.' };
+    if (!tank || tank.status !== 'Empty') return { success: false, message: 'Primary tank is not available.' };
+
+    if (secondTankId) {
+      const sTank = tanks.find(t => t.id === secondTankId);
+      if (!sTank || sTank.status !== 'Empty') return { success: false, message: 'Second tank is not available.' };
+    }
 
     // Combine all required ingredients
     const requiredIngredients: { name: string; quantity: number }[] = [];
@@ -129,11 +134,11 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
       startDate: new Date().toISOString().split('T')[0]
     };
 
-    // Calculate new tank
-    let updatedTank: Tank | null = null;
+    // Calculate new tanks
+    const updatedTanks: Tank[] = [];
     const newTanks = tanks.map(t => {
-      if (t.id === tankId) {
-        updatedTank = {
+      if (t.id === tankId || (secondTankId && t.id === secondTankId)) {
+        const updated = {
           ...t,
           status: 'Brewing' as any,
           currentRecipeId: recipeId,
@@ -141,7 +146,8 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
           startDate: new Date().toISOString().split('T')[0],
           currentOg: recipe.vitals?.originalGravity || 1.050
         };
-        return updatedTank;
+        updatedTanks.push(updated);
+        return updated;
       }
       return t;
     });
@@ -153,9 +159,7 @@ export function BrewProvider({ children, initialData }: { children: React.ReactN
 
     // Perform side effects
     updatedInventoryItems.forEach(u => saveInventoryItem(u));
-    if (updatedTank) saveTank(updatedTank);
-    saveBatch(newBatch);
-    
+    updatedTanks.forEach(u => saveTank(u));
     saveBatch(newBatch);
 
     addLog('STARTED_BREW', `Started brewing ${recipe.name} in tank ${tank.name}`);
