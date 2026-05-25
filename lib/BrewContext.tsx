@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Tank, InventoryItem, Recipe, LogEntry, Batch, KegBatch, KegReservation, Customer, MOCK_TANKS, MOCK_INVENTORY, MOCK_RECIPES, MOCK_SUPPLIERS, MOCK_BATCHES, MOCK_KEG_BATCHES, MOCK_CUSTOMERS } from './mockData';
-import { getInitialState, saveRecipe, removeRecipe, saveInventoryItem, removeInventoryItem, saveTank, saveBatch, removeBatch, saveKegBatch, saveLog } from '@/actions/data';
+import { getInitialState, saveRecipe, removeRecipe, saveInventoryItem, removeInventoryItem, saveTank, saveBatch, removeBatch, saveKegBatch, saveLog, saveCustomer, removeCustomer } from '@/actions/data';
 import { sendLineNotification } from '@/actions/line';
 
 type BrewContextType = {
@@ -66,21 +66,10 @@ export function BrewProvider({ children, initialData, user }: { children: React.
   const [logs, setLogs] = useState<LogEntry[]>(initialData?.logs || []);
   const [batches, setBatches] = useState<Batch[]>(initialData?.batches || MOCK_BATCHES);
   const [kegBatches, setKegBatches] = useState<KegBatch[]>(initialData?.kegBatches || MOCK_KEG_BATCHES);
-  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
+  const [customers, setCustomers] = useState<Customer[]>(initialData?.customers || MOCK_CUSTOMERS);
   const [isLoaded, setIsLoaded] = useState(true); // Always loaded if using initialData
 
-  useEffect(() => {
-    const localCustomers = localStorage.getItem('pks_customers');
-    if (localCustomers) {
-      try {
-        setCustomers(JSON.parse(localCustomers));
-      } catch (e) {}
-    }
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('pks_customers', JSON.stringify(customers));
-  }, [customers]);
 
 
 
@@ -517,19 +506,26 @@ export function BrewProvider({ children, initialData, user }: { children: React.
     addLog('DELETED_RECIPE', `Deleted recipe: ${recipe?.name || id}`);
   };
 
-  const addCustomer = (customer: Omit<Customer, 'id'>) => {
-    setCustomers(prev => [...prev, { ...customer, id: `cust-${Date.now()}` }]);
+  const addCustomer = async (customer: Omit<Customer, 'id'>) => {
+    const newCustomer = { ...customer, id: `cust-${Date.now()}` };
+    setCustomers(prev => [...prev, newCustomer]);
     addLog('ADDED_CUSTOMER', `Added customer: ${customer.name}`);
+    await saveCustomer(newCustomer);
   };
 
-  const updateCustomer = (id: string, updates: Partial<Customer>) => {
+  const updateCustomer = async (id: string, updates: Partial<Customer>) => {
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
     addLog('UPDATED_CUSTOMER', `Updated customer ID: ${id}`);
+    const updated = customers.find(c => c.id === id);
+    if (updated) {
+      await saveCustomer({ ...updated, ...updates });
+    }
   };
 
-  const deleteCustomer = (id: string) => {
+  const deleteCustomer = async (id: string) => {
     setCustomers(prev => prev.filter(c => c.id !== id));
     addLog('DELETED_CUSTOMER', `Deleted customer ID: ${id}`);
+    await removeCustomer(id);
   };
 
   return (

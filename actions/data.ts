@@ -1,7 +1,7 @@
 "use server"
 
 import { sql } from '@/lib/db';
-import { Tank, InventoryItem, Recipe, Batch, KegBatch, LogEntry } from '@/lib/mockData';
+import { Tank, InventoryItem, Recipe, Batch, KegBatch, LogEntry, Customer } from '@/lib/mockData';
 import { unstable_cache, revalidateTag } from 'next/cache';
 
 const getCachedRecipesFromDB = unstable_cache(
@@ -19,6 +19,7 @@ export async function getInitialState() {
     const inventoryRes = await sql`SELECT details FROM materials WHERE details IS NOT NULL`;
     const batchesRes = await sql`SELECT details FROM brew_batches WHERE details IS NOT NULL`;
     const kegBatchesRes = await sql`SELECT details FROM keg_batches WHERE details IS NOT NULL`;
+    const customersRes = await sql`SELECT details FROM customers WHERE details IS NOT NULL`;
     const logsRes = await sql`SELECT id, timestamp, user_id as "userId", username as user, action, details FROM system_logs ORDER BY timestamp DESC LIMIT 100`;
 
     const tanks = tanksRes.rows.map(r => r.details as Tank);
@@ -26,9 +27,10 @@ export async function getInitialState() {
     const recipes = await getCachedRecipesFromDB();
     const batches = batchesRes.rows.map(r => r.details as Batch);
     const kegBatches = kegBatchesRes.rows.map(r => r.details as KegBatch);
+    const customers = customersRes.rows.map(r => r.details as Customer);
     const logs = logsRes.rows as LogEntry[];
 
-    return { success: true, data: { tanks, inventory, recipes, batches, kegBatches, logs } };
+    return { success: true, data: { tanks, inventory, recipes, batches, kegBatches, customers, logs } };
   } catch (error: any) {
     console.error("Failed to fetch initial state:", error);
     return { success: false, error: error.message };
@@ -156,5 +158,30 @@ export async function saveKegBatch(kegBatch: KegBatch) {
   } catch (error: any) {
     console.error("Failed to save keg batch:", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function saveCustomer(customer: Customer) {
+  try {
+    const exists = await sql`SELECT id FROM customers WHERE details->>'id' = ${customer.id}`;
+    if ((exists.rowCount ?? 0) > 0) {
+      await sql`UPDATE customers SET details = ${JSON.stringify(customer)}::jsonb WHERE details->>'id' = ${customer.id}`;
+    } else {
+      await sql`INSERT INTO customers (details) VALUES (${JSON.stringify(customer)}::jsonb)`;
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to save customer:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function removeCustomer(id: string) {
+  try {
+    await sql`DELETE FROM customers WHERE details->>'id' = ${id}`;
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to delete customer:", error);
+    return { success: false };
   }
 }

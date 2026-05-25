@@ -16,30 +16,73 @@ export default function CustomerModal({ onClose }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [addForm, setAddForm] = useState<Omit<Customer, 'id'>>({ name: '', shopName: '', mapsUrl: '' });
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState<{type: 'error' | 'success', message: string} | null>(null);
+
   const handleEditClick = (c: Customer) => {
     setEditingId(c.id);
     setEditForm(c);
+    setToast(null);
   };
 
-  const handleSaveEdit = () => {
-    if (editingId && editForm.name) {
-      updateCustomer(editingId, editForm);
-      setEditingId(null);
+  const showToast = (type: 'error' | 'success', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.name) {
+      showToast('error', 'Customer name is required.');
+      return;
+    }
+    
+    if (editingId) {
+      setIsLoading(true);
+      try {
+        await updateCustomer(editingId, editForm);
+        setEditingId(null);
+        showToast('success', 'Customer updated successfully!');
+        setTimeout(onClose, 1000); // Auto-close after 1s
+      } catch (e: any) {
+        showToast('error', 'Failed to update customer: ' + e.message);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (addForm.name) {
-      addCustomer(addForm);
+    if (!addForm.name) {
+      showToast('error', 'Customer name is required.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await addCustomer(addForm);
       setIsAdding(false);
       setAddForm({ name: '', shopName: '', mapsUrl: '' });
+      showToast('success', 'Customer added successfully!');
+      setTimeout(onClose, 1000); // Auto-close after 1s
+    } catch (e: any) {
+      showToast('error', 'Failed to add customer: ' + e.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete ${name}?`)) {
-      deleteCustomer(id);
+      setIsLoading(true);
+      try {
+        await deleteCustomer(id);
+        showToast('success', 'Customer deleted.');
+      } catch (e: any) {
+        showToast('error', 'Failed to delete customer.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -61,7 +104,15 @@ export default function CustomerModal({ onClose }: Props) {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 relative">
+          
+          {/* Toast */}
+          {toast && (
+            <div className={`mb-4 p-3 rounded-lg text-sm font-bold border ${toast.type === 'error' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-brand-green/10 text-brand-green border-brand-green/20'}`}>
+              {toast.message}
+            </div>
+          )}
+
           {/* Add New Customer */}
           {isAdding ? (
             <form onSubmit={handleAddSubmit} className="bg-brand-amber/5 border border-brand-amber/20 rounded-xl p-4 mb-6">
@@ -81,8 +132,10 @@ export default function CustomerModal({ onClose }: Props) {
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs font-bold text-text-muted hover:text-white transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-xs font-bold bg-brand-amber text-black rounded-lg hover:bg-brand-amber-dark transition-colors">Save Customer</button>
+                <button type="button" disabled={isLoading} onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs font-bold text-text-muted hover:text-white transition-colors disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isLoading} className="px-4 py-2 text-xs font-bold bg-brand-amber text-black rounded-lg hover:bg-brand-amber-dark transition-colors disabled:opacity-50">
+                  {isLoading ? 'Saving...' : 'Save Customer'}
+                </button>
               </div>
             </form>
           ) : (
@@ -120,14 +173,14 @@ export default function CustomerModal({ onClose }: Props) {
                 <div className="flex items-center gap-2 md:w-auto w-full justify-end">
                   {editingId === c.id ? (
                     <>
-                      <button onClick={handleSaveEdit} className="p-2 bg-brand-green text-white rounded-lg hover:bg-brand-green/80 transition-colors"><Save className="w-4 h-4" /></button>
-                      <button onClick={() => setEditingId(null)} className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"><X className="w-4 h-4" /></button>
+                      <button disabled={isLoading} onClick={handleSaveEdit} className="p-2 bg-brand-green text-white rounded-lg hover:bg-brand-green/80 transition-colors disabled:opacity-50"><Save className="w-4 h-4" /></button>
+                      <button disabled={isLoading} onClick={() => setEditingId(null)} className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"><X className="w-4 h-4" /></button>
                     </>
                   ) : (
                     <>
                       <button onClick={() => handleEditClick(c)} className="p-2 text-text-muted hover:text-brand-amber hover:bg-brand-amber/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
                       {c.id !== '4' && (
-                        <button onClick={() => handleDelete(c.id, c.name)} className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        <button disabled={isLoading} onClick={() => handleDelete(c.id, c.name)} className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"><Trash2 className="w-4 h-4" /></button>
                       )}
                     </>
                   )}
